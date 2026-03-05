@@ -18,7 +18,7 @@
     "@astrojs/svelte": "^7.2.5",
     "@astrojs/tailwind": "^6.0.0",
     "astro": "^5.2.0",
-    "flowbite": "^2.5.2",
+    "flowbite": "^4.0.1",
     "flowbite-svelte": "^0.46.0",
     "svelte": "^5.20.0"
   },
