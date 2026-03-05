@@ -44,6 +44,7 @@ type Monitor struct {
 	loggerSharedSecret  string
 	webhookHMACSecret   string
 	sink                string
+	enabledSinks        map[string]bool
 	webhookAllowedHosts map[string]struct{}
 	interval            time.Duration
 	dedupeWindow        time.Duration
@@ -84,6 +85,7 @@ func NewMonitor(reportBuilder ReportBuilder, loggerEndpoint, webhookURL, loggerS
 		loggerSharedSecret:  loggerSharedSecret,
 		webhookHMACSecret:   webhookHMACSecret,
 		sink:                sink,
+		enabledSinks:        make(map[string]bool),
 		interval:            interval,
 		dedupeWindow:        dedupeWindow,
 		client:              client,
@@ -96,6 +98,9 @@ func NewMonitor(reportBuilder ReportBuilder, loggerEndpoint, webhookURL, loggerS
 			continue
 		}
 		monitor.webhookAllowedHosts[host] = struct{}{}
+	}
+	for _, item := range strings.FieldsFunc(sink, func(r rune) bool { return r == '+' || r == ',' }) {
+		monitor.enabledSinks[strings.TrimSpace(item)] = true
 	}
 	monitor.publishStats()
 	return monitor
@@ -247,19 +252,19 @@ func buildIncidentEventID(code, eventType, now string) string {
 }
 
 func (m *Monitor) dispatchEvent(event handlers.RuntimeIncidentEventRecord) {
-	if sinkIncludes(m.sink, "logger") {
+	if m.enabledSinks["logger"] {
 		if err := m.dispatchToLogger(event); err != nil {
 			m.dispatchFailures.Add(1)
 			m.lastDispatchError = err.Error()
 		}
 	}
-	if sinkIncludes(m.sink, "stdout") {
+	if m.enabledSinks["stdout"] {
 		payload, err := json.Marshal(event)
 		if err == nil {
 			log.Printf("incident_event %s", payload)
 		}
 	}
-	if sinkIncludes(m.sink, "webhook") {
+	if m.enabledSinks["webhook"] {
 		if err := m.dispatchToWebhook(event); err != nil {
 			m.dispatchFailures.Add(1)
 			m.lastDispatchError = err.Error()
@@ -353,15 +358,6 @@ func (m *Monitor) publishStats() {
 		LastDispatchAt:    m.lastDispatchAt,
 		LastDispatchError: m.lastDispatchError,
 	})
-}
-
-func sinkIncludes(raw, target string) bool {
-	for _, item := range strings.FieldsFunc(raw, func(r rune) bool { return r == '+' || r == ',' }) {
-		if strings.TrimSpace(item) == target {
-			return true
-		}
-	}
-	return false
 }
 
 func deriveLoggerBaseURL(raw string) string {
