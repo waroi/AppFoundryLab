@@ -6,7 +6,7 @@ COPY core/calculator/src /app/src
 COPY proto /proto
 RUN cargo build --release
 
-FROM alpine:3.20
+FROM alpine:3.23
 RUN adduser -D appuser
 WORKDIR /app
 COPY --from=builder /app/target/release/calculator /app/calculator
