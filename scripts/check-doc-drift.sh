@@ -4,6 +4,7 @@ set -euo pipefail
 MODE="advisory"
 BASE_REF=""
 HEAD_REF="HEAD"
+GIT_BIN="${GIT_BIN:-git}"
 
 usage() {
   cat <<'EOF'
@@ -57,28 +58,77 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+resolve_git_bin() {
+  if command -v "$GIT_BIN" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if [[ "$GIT_BIN" != "git" ]]; then
+    return 1
+  fi
+
+  local candidate
+  for candidate in \
+    "/mnt/c/Program Files/Git/cmd/git.exe" \
+    "/mnt/c/Program Files/Git/bin/git.exe"; do
+    if [[ -x "$candidate" ]]; then
+      GIT_BIN="$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+normalize_changed_files_override() {
+  local raw="${DOC_DRIFT_CHANGED_FILES:-}"
+  if [[ -z "$raw" ]]; then
+    return 0
+  fi
+  printf '%s\n' "$raw" \
+    | tr ',' '\n' \
+    | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' \
+    | sed '/^$/d'
+}
+
 if [[ "$MODE" != "advisory" && "$MODE" != "strict" ]]; then
   echo "invalid mode: $MODE" >&2
   usage >&2
   exit 1
 fi
 
-if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  echo "doc drift check skipped: not a git work tree"
-  exit 0
-fi
-
-if [[ -z "$BASE_REF" ]]; then
-  if [[ -n "${GITHUB_BASE_REF:-}" ]]; then
-    BASE_REF="origin/${GITHUB_BASE_REF}"
-  else
-    BASE_REF="HEAD~1"
+CHANGED_FILES=""
+if resolve_git_bin; then
+  if ! "$GIT_BIN" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "doc drift check skipped: not a git work tree"
+    exit 0
   fi
+
+  if [[ -z "$BASE_REF" ]]; then
+    if [[ -n "${GITHUB_BASE_REF:-}" ]]; then
+      BASE_REF="origin/${GITHUB_BASE_REF}"
+    else
+      CHANGED_FILES="$("$GIT_BIN" -c core.quotePath=false diff --name-only HEAD || true)"
+    fi
+  fi
+
+  if [[ -n "$BASE_REF" ]]; then
+    RANGE="${BASE_REF}...${HEAD_REF}"
+    CHANGED_FILES="$("$GIT_BIN" -c core.quotePath=false diff --name-only "$RANGE" || true)"
+  fi
+else
+  CHANGED_FILES="$(normalize_changed_files_override)"
+  if [[ -z "$CHANGED_FILES" ]]; then
+    if [[ "$MODE" == "strict" ]]; then
+      echo "doc drift check failed (strict): git command not found and DOC_DRIFT_CHANGED_FILES is empty" >&2
+      exit 1
+    fi
+    echo "doc drift check skipped: git command not found and DOC_DRIFT_CHANGED_FILES is empty"
+    exit 0
+  fi
+  echo "doc drift check: using DOC_DRIFT_CHANGED_FILES fallback"
 fi
 
-RANGE="${BASE_REF}...${HEAD_REF}"
-
-CHANGED_FILES="$(git diff --name-only "$RANGE" || true)"
 if [[ -z "$CHANGED_FILES" ]]; then
   echo "doc drift check skipped: no changed files"
   exit 0

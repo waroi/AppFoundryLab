@@ -1,5 +1,5 @@
-import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
+import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -271,10 +271,7 @@ function resolveStaticCandidates(urlPathname) {
     return [path.join(distRoot, trimmed)];
   }
 
-  return [
-    path.join(distRoot, trimmed),
-    path.join(distRoot, trimmed, "index.html"),
-  ];
+  return [path.join(distRoot, trimmed), path.join(distRoot, trimmed, "index.html")];
 }
 
 async function handleStatic(res, pathname) {
@@ -355,9 +352,7 @@ const server = createServer(async (req, res) => {
 
   if (pathname === "/mock-api/api/v1/admin/request-logs") {
     const traceId = searchParams.get("traceId")?.trim() ?? "";
-    const items = traceId
-      ? requestLogs.filter((entry) => entry.traceId === traceId)
-      : requestLogs;
+    const items = traceId ? requestLogs.filter((entry) => entry.traceId === traceId) : requestLogs;
     sendJson(res, { items });
     return;
   }
@@ -366,5 +361,5 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(port, "127.0.0.1", () => {
-  console.log(`frontend e2e server listening on http://127.0.0.1:${port}`);
+  process.stdout.write(`frontend e2e server listening on http://127.0.0.1:${port}\n`);
 });

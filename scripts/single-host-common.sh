@@ -38,6 +38,7 @@ read_env_value() {
   awk -F= -v key="$key" '
     $1 == key {
       value = substr($0, index($0, "=") + 1)
+      sub(/\r$/, "", value)
     }
     END {
       print value
@@ -81,7 +82,32 @@ append_runtime_override_keys() {
 }
 
 docker_bin_path() {
-  printf '%s\n' "${DOCKER_BIN:-docker}"
+  if [[ -n "${DOCKER_BIN:-}" ]]; then
+    printf '%s\n' "$DOCKER_BIN"
+    return
+  fi
+
+  if command -v docker >/dev/null 2>&1 \
+    && docker compose version >/dev/null 2>&1 \
+    && docker info >/dev/null 2>&1; then
+    local docker_version_output
+    docker_version_output="$(docker version --format '{{.Server.Version}}' 2>&1 || true)"
+    if [[ "$docker_version_output" != *podman* && "$docker_version_output" != *Podman* ]]; then
+      printf '%s\n' "docker"
+      return
+    fi
+  fi
+
+  local candidate
+  for candidate in \
+    "/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe"; do
+    if [[ -x "$candidate" ]] && "$candidate" info >/dev/null 2>&1; then
+      printf '%s\n' "$candidate"
+      return
+    fi
+  done
+
+  printf '%s\n' "docker"
 }
 
 is_windows_docker_bin() {

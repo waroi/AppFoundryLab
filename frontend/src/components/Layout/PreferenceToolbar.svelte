@@ -1,8 +1,16 @@
 <script lang="ts">
-import { getCopy, getPageTitle, type PageTitleKey } from "@/lib/ui/copy";
-import { getLocalizedPath } from "@/lib/ui/routes";
-import { DEFAULT_LOCALE, initializePreferenceSync, locale, setLocale, setTheme, theme, type Locale } from "@/lib/ui/preferences";
 import { onMount } from "svelte";
+import { getCopy, getPageTitle, type PageTitleKey } from "@/lib/ui/copy";
+import {
+  DEFAULT_LOCALE,
+  initializePreferenceSync,
+  type Locale,
+  locale,
+  setLocale,
+  setTheme,
+  theme,
+} from "@/lib/ui/preferences";
+import { getLocalizedPath } from "@/lib/ui/routes";
 
 export let pageTitleKey: PageTitleKey;
 export let initialLocale: Locale = DEFAULT_LOCALE;

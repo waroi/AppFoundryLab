@@ -1,25 +1,25 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from "vitest";
 import {
-  isHealthResponse,
-  isUsersResponse,
-  isTokenResponse,
   isFibonacciResponse,
+  isHealthResponse,
   isRuntimeConfigResponse,
+  isRuntimeIncidentEventsResponse,
   isRuntimeMetricsResponse,
   isRuntimeReportResponse,
-  isRuntimeIncidentEventsResponse,
-  isRuntimeRequestLogsResponse
-} from '../validators';
+  isRuntimeRequestLogsResponse,
+  isTokenResponse,
+  isUsersResponse,
+} from "../validators";
 
-describe('validators', () => {
-  describe('isHealthResponse', () => {
+describe("validators", () => {
+  describe("isHealthResponse", () => {
     it('should return true for valid "ok" payload', () => {
       const payload = {
-        status: 'ok',
+        status: "ok",
         checks: {
-          postgres: 'up',
-          redis: 'up',
-          worker: 'up',
+          postgres: "up",
+          redis: "up",
+          worker: "up",
         },
       };
       expect(isHealthResponse(payload)).toBe(true);
@@ -27,161 +27,161 @@ describe('validators', () => {
 
     it('should return true for valid "degraded" payload with components down', () => {
       const payload = {
-        status: 'degraded',
+        status: "degraded",
         checks: {
-          postgres: 'down',
-          redis: 'up',
-          worker: 'down',
+          postgres: "down",
+          redis: "up",
+          worker: "down",
         },
       };
       expect(isHealthResponse(payload)).toBe(true);
     });
 
-    it('should return false for null or non-object payloads', () => {
+    it("should return false for null or non-object payloads", () => {
       expect(isHealthResponse(null)).toBe(false);
-      expect(isHealthResponse('ok')).toBe(false);
+      expect(isHealthResponse("ok")).toBe(false);
       expect(isHealthResponse(123)).toBe(false);
     });
 
-    it('should return false if missing fields', () => {
+    it("should return false if missing fields", () => {
       const payload = {
-        status: 'ok',
+        status: "ok",
         // missing checks
       };
       expect(isHealthResponse(payload)).toBe(false);
     });
 
-    it('should return false for invalid nested fields', () => {
+    it("should return false for invalid nested fields", () => {
       const payload = {
-        status: 'ok',
+        status: "ok",
         checks: {
-          postgres: 'invalid', // invalid value
-          redis: 'up',
-          worker: 'up',
+          postgres: "invalid", // invalid value
+          redis: "up",
+          worker: "up",
         },
       };
       expect(isHealthResponse(payload)).toBe(false);
     });
   });
 
-  describe('isUsersResponse', () => {
-    it('should return true for a valid users list payload', () => {
+  describe("isUsersResponse", () => {
+    it("should return true for a valid users list payload", () => {
       const payload = {
         data: [
           {
             id: 1,
-            name: 'Alice',
-            email: 'alice@example.com',
-            createdAt: '2023-01-01T00:00:00Z',
+            name: "Alice",
+            email: "alice@example.com",
+            createdAt: "2023-01-01T00:00:00Z",
           },
           {
             id: 2,
-            name: 'Bob',
-            email: 'bob@example.com',
-            createdAt: '2023-01-02T00:00:00Z',
+            name: "Bob",
+            email: "bob@example.com",
+            createdAt: "2023-01-02T00:00:00Z",
           },
         ],
       };
       expect(isUsersResponse(payload)).toBe(true);
     });
 
-    it('should return true for an empty valid users list', () => {
+    it("should return true for an empty valid users list", () => {
       const payload = {
         data: [],
       };
       expect(isUsersResponse(payload)).toBe(true);
     });
 
-    it('should return false for null or non-object', () => {
+    it("should return false for null or non-object", () => {
       expect(isUsersResponse(null)).toBe(false);
       expect(isUsersResponse([])).toBe(false); // Validating object containing 'data' array
     });
 
-    it('should return false if missing data array', () => {
+    it("should return false if missing data array", () => {
       const payload = {};
       expect(isUsersResponse(payload)).toBe(false);
     });
 
-    it('should return false if a user object has invalid types', () => {
+    it("should return false if a user object has invalid types", () => {
       const payload = {
         data: [
           {
-            id: '1', // Should be a number
-            name: 'Alice',
-            email: 'alice@example.com',
-            createdAt: '2023-01-01T00:00:00Z',
+            id: "1", // Should be a number
+            name: "Alice",
+            email: "alice@example.com",
+            createdAt: "2023-01-01T00:00:00Z",
           },
         ],
       };
       expect(isUsersResponse(payload)).toBe(false);
     });
 
-    it('should return false if data contains non-objects', () => {
+    it("should return false if data contains non-objects", () => {
       const payload = {
-        data: ['user1'],
+        data: ["user1"],
       };
       expect(isUsersResponse(payload)).toBe(false);
     });
   });
 
-  describe('isTokenResponse', () => {
-    it('should return true for a valid user token payload', () => {
+  describe("isTokenResponse", () => {
+    it("should return true for a valid user token payload", () => {
       const payload = {
-        accessToken: 'some-jwt-token',
-        tokenType: 'Bearer',
+        accessToken: "some-jwt-token",
+        tokenType: "Bearer",
         expiresIn: 3600,
-        role: 'user',
+        role: "user",
       };
       expect(isTokenResponse(payload)).toBe(true);
     });
 
-    it('should return true for a valid admin token payload', () => {
+    it("should return true for a valid admin token payload", () => {
       const payload = {
-        accessToken: 'admin-jwt-token',
-        tokenType: 'Bearer',
+        accessToken: "admin-jwt-token",
+        tokenType: "Bearer",
         expiresIn: 7200,
-        role: 'admin',
+        role: "admin",
       };
       expect(isTokenResponse(payload)).toBe(true);
     });
 
-    it('should return false for null or non-object', () => {
+    it("should return false for null or non-object", () => {
       expect(isTokenResponse(null)).toBe(false);
-      expect(isTokenResponse('token')).toBe(false);
+      expect(isTokenResponse("token")).toBe(false);
     });
 
-    it('should return false if missing required fields', () => {
+    it("should return false if missing required fields", () => {
       const payload = {
-        accessToken: 'token',
-        tokenType: 'Bearer',
+        accessToken: "token",
+        tokenType: "Bearer",
         // missing expiresIn and role
       };
       expect(isTokenResponse(payload)).toBe(false);
     });
 
-    it('should return false if wrong tokenType', () => {
+    it("should return false if wrong tokenType", () => {
       const payload = {
-        accessToken: 'token',
-        tokenType: 'Basic', // should be 'Bearer'
+        accessToken: "token",
+        tokenType: "Basic", // should be 'Bearer'
         expiresIn: 3600,
-        role: 'user',
+        role: "user",
       };
       expect(isTokenResponse(payload)).toBe(false);
     });
 
-    it('should return false if wrong role', () => {
+    it("should return false if wrong role", () => {
       const payload = {
-        accessToken: 'token',
-        tokenType: 'Bearer',
+        accessToken: "token",
+        tokenType: "Bearer",
         expiresIn: 3600,
-        role: 'superadmin', // should be 'user' or 'admin'
+        role: "superadmin", // should be 'user' or 'admin'
       };
       expect(isTokenResponse(payload)).toBe(false);
     });
   });
 
-  describe('isFibonacciResponse', () => {
-    it('should return true for a valid fibonacci payload', () => {
+  describe("isFibonacciResponse", () => {
+    it("should return true for a valid fibonacci payload", () => {
       const payload = {
         n: 10,
         value: 55,
@@ -189,28 +189,28 @@ describe('validators', () => {
       expect(isFibonacciResponse(payload)).toBe(true);
     });
 
-    it('should return false for null or non-object', () => {
+    it("should return false for null or non-object", () => {
       expect(isFibonacciResponse(null)).toBe(false);
       expect(isFibonacciResponse(55)).toBe(false);
     });
 
-    it('should return false if missing fields', () => {
+    it("should return false if missing fields", () => {
       const payload = {
         n: 10,
       };
       expect(isFibonacciResponse(payload)).toBe(false);
     });
 
-    it('should return false if types are incorrect', () => {
+    it("should return false if types are incorrect", () => {
       const payload = {
-        n: '10', // should be number
+        n: "10", // should be number
         value: 55,
       };
       expect(isFibonacciResponse(payload)).toBe(false);
     });
   });
 
-  describe('isRuntimeConfigResponse', () => {
+  describe("isRuntimeConfigResponse", () => {
     const validConfig = {
       profile: "test",
       http: {
@@ -248,32 +248,32 @@ describe('validators', () => {
       warnings: ["warning1"],
     };
 
-    it('should return true for a valid runtime config payload', () => {
+    it("should return true for a valid runtime config payload", () => {
       expect(isRuntimeConfigResponse(validConfig)).toBe(true);
     });
 
-    it('should return false for null or non-object', () => {
+    it("should return false for null or non-object", () => {
       expect(isRuntimeConfigResponse(null)).toBe(false);
       expect(isRuntimeConfigResponse("config")).toBe(false);
     });
 
-    it('should return false if missing top-level fields', () => {
+    it("should return false if missing top-level fields", () => {
       const { http, ...missingHttp } = validConfig;
       expect(isRuntimeConfigResponse(missingHttp)).toBe(false);
     });
 
-    it('should return false if nested object is missing fields', () => {
+    it("should return false if nested object is missing fields", () => {
       const invalidHttp = { ...validConfig, http: { legacyApiEnabled: true } };
       expect(isRuntimeConfigResponse(invalidHttp)).toBe(false);
     });
 
-    it('should return false if warnings is not an array', () => {
+    it("should return false if warnings is not an array", () => {
       const invalidConfig = { ...validConfig, warnings: "warning1" };
       expect(isRuntimeConfigResponse(invalidConfig)).toBe(false);
     });
   });
 
-  describe('isRuntimeMetricsResponse', () => {
+  describe("isRuntimeMetricsResponse", () => {
     const validMetrics = {
       requestsTotal: 100,
       requestErrors: 5,
@@ -293,7 +293,7 @@ describe('validators', () => {
           loadShedTotal: 0,
           inflightCurrent: 5,
           inflightPeak: 10,
-        }
+        },
       ],
       alerts: {
         activeCount: 1,
@@ -308,9 +308,9 @@ describe('validators', () => {
             message: "Error",
             recommendedAction: "Fix it",
             breachCount: 5,
-            lastTriggeredAt: "2023-10-10T00:00:00Z"
-          }
-        ]
+            lastTriggeredAt: "2023-10-10T00:00:00Z",
+          },
+        ],
       },
       health: {
         status: "ok",
@@ -322,14 +322,14 @@ describe('validators', () => {
         cacheAgeMs: 100,
         cacheTtlMs: 60000,
         staleIfErrorTtlMs: 120000,
-        lastCheckedAt: "2023-10-10T00:00:00Z"
+        lastCheckedAt: "2023-10-10T00:00:00Z",
       },
       trace: {
         enabled: true,
         responseHeader: "x-trace-id",
         forwardedToLogger: true,
         storedOnLoggerAs: "trace_id",
-        storageField: "trace"
+        storageField: "trace",
       },
       gatewayLogger: {
         enabled: true,
@@ -338,7 +338,7 @@ describe('validators', () => {
         queueCapacity: 1000,
         workers: 5,
         retryMax: 3,
-        droppedTotal: 0
+        droppedTotal: 0,
       },
       loggerService: {
         configured: true,
@@ -357,7 +357,7 @@ describe('validators', () => {
         dropRatio: 0,
         dropAlertThresholdPct: 0.1,
         dropAlertThresholdHit: false,
-        lastError: ""
+        lastError: "",
       },
       incidentJournal: {
         enabled: true,
@@ -370,48 +370,48 @@ describe('validators', () => {
         lastEventStatus: "dispatched",
         dispatchFailures: 0,
         lastDispatchAt: "2023-10-10T00:00:00Z",
-        lastDispatchError: ""
+        lastDispatchError: "",
       },
-      warnings: []
+      warnings: [],
     };
 
-    it('should return true for a valid runtime metrics payload', () => {
+    it("should return true for a valid runtime metrics payload", () => {
       expect(isRuntimeMetricsResponse(validMetrics)).toBe(true);
     });
 
-    it('should return false for null or non-object', () => {
+    it("should return false for null or non-object", () => {
       expect(isRuntimeMetricsResponse(null)).toBe(false);
       expect(isRuntimeMetricsResponse("metrics")).toBe(false);
     });
 
-    it('should return false if missing top-level metrics', () => {
+    it("should return false if missing top-level metrics", () => {
       const { requestsTotal, ...missingFields } = validMetrics;
       expect(isRuntimeMetricsResponse(missingFields)).toBe(false);
     });
 
-    it('should return false if recentHistory item is invalid', () => {
+    it("should return false if recentHistory item is invalid", () => {
       const invalidHistory = {
         ...validMetrics,
-        recentHistory: [{ invalid: "point" }]
+        recentHistory: [{ invalid: "point" }],
       };
       expect(isRuntimeMetricsResponse(invalidHistory)).toBe(false);
     });
 
-    it('should return false if alert item is invalid', () => {
+    it("should return false if alert item is invalid", () => {
       const invalidAlerts = {
         ...validMetrics,
-        alerts: { ...validMetrics.alerts, items: [{ missingFields: true }] }
+        alerts: { ...validMetrics.alerts, items: [{ missingFields: true }] },
       };
       expect(isRuntimeMetricsResponse(invalidAlerts)).toBe(false);
     });
 
-    it('should return false if missing a major nested block (e.g. loggerService)', () => {
+    it("should return false if missing a major nested block (e.g. loggerService)", () => {
       const { loggerService, ...missingLogger } = validMetrics;
       expect(isRuntimeMetricsResponse(missingLogger)).toBe(false);
     });
   });
 
-  describe('isRuntimeReportResponse', () => {
+  describe("isRuntimeReportResponse", () => {
     const validConfig = {
       profile: "test",
       http: {
@@ -467,7 +467,7 @@ describe('validators', () => {
         activeCount: 1,
         highestSeverity: "high",
         recentlyBreached: true,
-        items: []
+        items: [],
       },
       health: {
         status: "ok",
@@ -479,14 +479,14 @@ describe('validators', () => {
         cacheAgeMs: 100,
         cacheTtlMs: 60000,
         staleIfErrorTtlMs: 120000,
-        lastCheckedAt: "2023-10-10T00:00:00Z"
+        lastCheckedAt: "2023-10-10T00:00:00Z",
       },
       trace: {
         enabled: true,
         responseHeader: "x-trace-id",
         forwardedToLogger: true,
         storedOnLoggerAs: "trace_id",
-        storageField: "trace"
+        storageField: "trace",
       },
       gatewayLogger: {
         enabled: true,
@@ -495,7 +495,7 @@ describe('validators', () => {
         queueCapacity: 1000,
         workers: 5,
         retryMax: 3,
-        droppedTotal: 0
+        droppedTotal: 0,
       },
       loggerService: {
         configured: true,
@@ -514,7 +514,7 @@ describe('validators', () => {
         dropRatio: 0,
         dropAlertThresholdPct: 0.1,
         dropAlertThresholdHit: false,
-        lastError: ""
+        lastError: "",
       },
       incidentJournal: {
         enabled: true,
@@ -527,9 +527,9 @@ describe('validators', () => {
         lastEventStatus: "dispatched",
         dispatchFailures: 0,
         lastDispatchAt: "2023-10-10T00:00:00Z",
-        lastDispatchError: ""
+        lastDispatchError: "",
       },
-      warnings: []
+      warnings: [],
     };
 
     const validReport = {
@@ -543,50 +543,50 @@ describe('validators', () => {
           title: "Runbook 1",
           path: "/runbook",
           reason: "High errors",
-          priority: "high"
-        }
+          priority: "high",
+        },
       ],
       incident: {
         suspectedSystems: ["gateway"],
         triggeredAlerts: ["ERR1"],
         nextActions: ["Investigate"],
-        evidence: ["logs"]
-      }
+        evidence: ["logs"],
+      },
     };
 
-    it('should return true for a valid runtime report payload', () => {
+    it("should return true for a valid runtime report payload", () => {
       expect(isRuntimeReportResponse(validReport)).toBe(true);
     });
 
-    it('should return false for null or non-object', () => {
+    it("should return false for null or non-object", () => {
       expect(isRuntimeReportResponse(null)).toBe(false);
       expect(isRuntimeReportResponse("report")).toBe(false);
     });
 
-    it('should return false if missing generatedAt', () => {
+    it("should return false if missing generatedAt", () => {
       const { generatedAt, ...missingFields } = validReport;
       expect(isRuntimeReportResponse(missingFields)).toBe(false);
     });
 
-    it('should return false if runbook item is invalid', () => {
+    it("should return false if runbook item is invalid", () => {
       const invalidRunbooks = {
         ...validReport,
-        runbooks: [{ id: "rb1" }] // missing other required runbook fields
+        runbooks: [{ id: "rb1" }], // missing other required runbook fields
       };
       expect(isRuntimeReportResponse(invalidRunbooks)).toBe(false);
     });
 
-    it('should return false if incident is invalid', () => {
+    it("should return false if incident is invalid", () => {
       const invalidIncident = {
         ...validReport,
-        incident: { suspectedSystems: "gateway" } // suspectedSystems should be array
+        incident: { suspectedSystems: "gateway" }, // suspectedSystems should be array
       };
       expect(isRuntimeReportResponse(invalidIncident)).toBe(false);
     });
   });
 
-  describe('isRuntimeIncidentEventsResponse', () => {
-    it('should return true for a valid incident events payload', () => {
+  describe("isRuntimeIncidentEventsResponse", () => {
+    it("should return true for a valid incident events payload", () => {
       const payload = {
         items: [
           {
@@ -608,38 +608,38 @@ describe('validators', () => {
             traceId: "trace1",
             reportGeneratedAt: "2023-10-10T00:00:00Z",
             reportVersion: "1.0",
-            runbooks: []
-          }
-        ]
+            runbooks: [],
+          },
+        ],
       };
       expect(isRuntimeIncidentEventsResponse(payload)).toBe(true);
     });
 
-    it('should return false for null or non-object', () => {
+    it("should return false for null or non-object", () => {
       expect(isRuntimeIncidentEventsResponse(null)).toBe(false);
       expect(isRuntimeIncidentEventsResponse("events")).toBe(false);
     });
 
-    it('should return false if items is missing', () => {
+    it("should return false if items is missing", () => {
       const payload = {};
       expect(isRuntimeIncidentEventsResponse(payload)).toBe(false);
     });
 
-    it('should return false if an item is invalid', () => {
+    it("should return false if an item is invalid", () => {
       const payload = {
         items: [
           {
             id: "ev1",
             // missing other fields
-          }
-        ]
+          },
+        ],
       };
       expect(isRuntimeIncidentEventsResponse(payload)).toBe(false);
     });
   });
 
-  describe('isRuntimeRequestLogsResponse', () => {
-    it('should return true for a valid request logs payload', () => {
+  describe("isRuntimeRequestLogsResponse", () => {
+    it("should return true for a valid request logs payload", () => {
       const payload = {
         items: [
           {
@@ -649,7 +649,7 @@ describe('validators', () => {
             traceId: "trace1",
             durationMs: 10,
             statusCode: 200,
-            occurredAt: "2023-10-10T00:00:00Z"
+            occurredAt: "2023-10-10T00:00:00Z",
           },
           {
             path: "/api2",
@@ -658,34 +658,33 @@ describe('validators', () => {
             // missing traceId is valid
             durationMs: 20,
             statusCode: 201,
-            occurredAt: "2023-10-10T00:00:00Z"
-          }
-        ]
+            occurredAt: "2023-10-10T00:00:00Z",
+          },
+        ],
       };
       expect(isRuntimeRequestLogsResponse(payload)).toBe(true);
     });
 
-    it('should return false for null or non-object', () => {
+    it("should return false for null or non-object", () => {
       expect(isRuntimeRequestLogsResponse(null)).toBe(false);
       expect(isRuntimeRequestLogsResponse("logs")).toBe(false);
     });
 
-    it('should return false if items is missing', () => {
+    it("should return false if items is missing", () => {
       const payload = {};
       expect(isRuntimeRequestLogsResponse(payload)).toBe(false);
     });
 
-    it('should return false if an item is invalid', () => {
+    it("should return false if an item is invalid", () => {
       const payload = {
         items: [
           {
             path: "/api",
             // missing other fields
-          }
-        ]
+          },
+        ],
       };
       expect(isRuntimeRequestLogsResponse(payload)).toBe(false);
     });
   });
-
 });

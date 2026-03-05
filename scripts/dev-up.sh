@@ -38,6 +38,68 @@ wait_for_url() {
   return 1
 }
 
+check_postgres_auth() {
+  local compose_args=("$@")
+  set +e
+  docker_compose_with_app_env_file "$ENV_FILE" "${compose_args[@]}" exec -T postgres \
+    sh -lc 'PGPASSWORD="${POSTGRES_PASSWORD}" psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -c "SELECT 1" >/dev/null' \
+    >/dev/null 2>&1
+  local status=$?
+  set -e
+  return "$status"
+}
+
+check_mongo_auth() {
+  local compose_args=("$@")
+  set +e
+  docker_compose_with_app_env_file "$ENV_FILE" "${compose_args[@]}" exec -T mongo \
+    sh -lc 'mongosh --quiet --username "${MONGO_INITDB_ROOT_USERNAME}" --password "${MONGO_INITDB_ROOT_PASSWORD}" --authenticationDatabase admin --eval "db.adminCommand({ ping: 1 }).ok" >/dev/null' \
+    >/dev/null 2>&1
+  local status=$?
+  set -e
+  return "$status"
+}
+
+wait_for_data_credential_checks() {
+  local mode="$1"
+  shift
+  local compose_args=("$@")
+  local postgres_ok="false"
+  local mongo_ok="false"
+
+  if is_truthy "${SKIP_DATA_CREDENTIAL_CHECK:-false}"; then
+    echo "data credential check skipped: SKIP_DATA_CREDENTIAL_CHECK=true"
+    return 0
+  fi
+
+  for _ in $(seq 1 60); do
+    if check_postgres_auth "${compose_args[@]}"; then
+      postgres_ok="true"
+    fi
+    if check_mongo_auth "${compose_args[@]}"; then
+      mongo_ok="true"
+    fi
+    if [[ "$postgres_ok" == "true" && "$mongo_ok" == "true" ]]; then
+      echo "data credential check passed"
+      return 0
+    fi
+    sleep 2
+  done
+
+  echo "data credential check failed for persisted services (postgres_ok=$postgres_ok mongo_ok=$mongo_ok)" >&2
+  cat >&2 <<EOF
+possible cause: existing local database volumes were initialized with different credentials.
+fix options:
+  1) align POSTGRES_PASSWORD and MONGO_INITDB_ROOT_PASSWORD in .env.docker.local with existing volume credentials
+  2) recreate local volumes if data can be reset:
+     ./scripts/dev-down.sh $mode
+     docker compose --env-file .env.docker.local -f docker-compose.yml [-f docker-compose.security.yml] down -v
+
+temporary bypass (not recommended): SKIP_DATA_CREDENTIAL_CHECK=true ./scripts/dev-up.sh <profile> <mode>
+EOF
+  return 1
+}
+
 env_value_or_default() {
   local key="$1"
   local fallback="$2"
@@ -171,6 +233,7 @@ main() {
 
   docker_compose_with_app_env_file "$ENV_FILE" "${compose_args[@]}" up --build -d
 
+  wait_for_data_credential_checks "$MODE" "${compose_args[@]}"
   wait_for_url "$API_BASE_URL/health/live" "api-gateway"
   wait_for_url "$FRONTEND_BASE_URL" "frontend"
 

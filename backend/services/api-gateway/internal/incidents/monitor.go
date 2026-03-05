@@ -263,16 +263,16 @@ func (m *Monitor) dispatchEvent(event handlers.RuntimeIncidentEventRecord) {
 		return
 	}
 
-	if sinkIncludes(m.sink, "logger") {
+	if m.sinkEnabled("logger") {
 		if err := m.dispatchToLogger(payload); err != nil {
 			m.dispatchFailures.Add(1)
 			m.lastDispatchError = err.Error()
 		}
 	}
-	if sinkIncludes(m.sink, "stdout") {
+	if m.sinkEnabled("stdout") {
 		log.Printf("incident_event %s", payload)
 	}
-	if sinkIncludes(m.sink, "webhook") {
+	if m.sinkEnabled("webhook") {
 		if err := m.dispatchToWebhook(payload); err != nil {
 			m.dispatchFailures.Add(1)
 			m.lastDispatchError = err.Error()
@@ -393,4 +393,32 @@ func firstNonEmpty(candidates ...string) string {
 		}
 	}
 	return ""
+}
+
+func (m *Monitor) sinkEnabled(name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		return false
+	}
+	if len(m.enabledSinks) > 0 {
+		return m.enabledSinks[name] || m.enabledSinks["all"]
+	}
+	return sinkIncludes(m.sink, name)
+}
+
+func sinkIncludes(raw, name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		return false
+	}
+	for _, item := range strings.FieldsFunc(raw, func(r rune) bool { return r == '+' || r == ',' }) {
+		value := strings.ToLower(strings.TrimSpace(item))
+		if value == "" {
+			continue
+		}
+		if value == "all" || value == name {
+			return true
+		}
+	}
+	return false
 }

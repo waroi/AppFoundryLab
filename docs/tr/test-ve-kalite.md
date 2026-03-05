@@ -30,17 +30,27 @@ Ortamda sistem `cc` yoksa depo icindeki yardimci scripti kullanin:
 
 ```bash
 cd frontend && bun run lint
-cd frontend && ./node_modules/.bin/astro check
-cd frontend && ./node_modules/.bin/astro build
-cd frontend && node ./scripts/smoke.mjs
+cd frontend && bun run check
+cd frontend && bun run build
+cd frontend && bun run smoke
+cd frontend && bun run test
 cd frontend && bun run e2e:bootstrap
-cd frontend && ./scripts/run-playwright.sh
+cd frontend && bunx playwright install chromium
+cd frontend && bun run e2e
 ```
 
 Opsiyonel API baglantili smoke:
 
 ```bash
 cd frontend && SMOKE_API_BASE_URL=http://127.0.0.1:8080 node ./scripts/smoke.mjs
+```
+
+Yerel full-stack prova (WSL + Docker Desktop ornegi):
+
+```bash
+DOCKER_BIN="/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe" ./scripts/dev-doctor.sh
+DOCKER_BIN="/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe" ./scripts/dev-up.sh standard
+DOCKER_BIN="/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe" ./scripts/rehearse-release-evidence-local.sh ./.env.docker.local ./artifacts/local-release-evidence
 ```
 
 ## 4. Governance kontrolleri
@@ -54,6 +64,14 @@ cd frontend && SMOKE_API_BASE_URL=http://127.0.0.1:8080 node ./scripts/smoke.mjs
 ./scripts/check-doc-drift.sh --mode strict
 ./scripts/check-release-policy-drift.sh
 ./scripts/release-gate.sh fast
+```
+
+`git` binary'si olmayan strict shell ortamlarinda fallback:
+
+```bash
+GIT_BIN=__missing_git__ \
+DOC_DRIFT_CHANGED_FILES="backend/services/api-gateway/internal/incidents/monitor.go,README.md,docs/appfoundrylab-teknik-analiz.md,docs/gelistirmePlanı.md" \
+./scripts/check-doc-drift.sh --mode strict
 ```
 
 Notlar:
@@ -72,6 +90,9 @@ Notlar:
 - `./scripts/local-ci-smoke.sh`, dev script testleri, release policy drift ve worker helper dogrulamasini tek akista toplar
 - `local-ci-smoke` icin varsayilan `RUN_WORKER_TESTS=auto` modudur; izin kisitli sandbox ortamlarini acikca skip eder, `RUN_WORKER_TESTS=true` ise strict davranir
 - `./scripts/rehearse-release-evidence-local.sh`, katalog, ledger, attestation, summary ve audit-export akislarinin gercek yerel deploy uzerinde birlikte calistigini kanitlayan kanonik repo ici dogrulamadir
+- operator mTLS readiness kontrolunde sertifika gecerlilik denetimi GNU `date -d` bagimliligindan cikarilip `openssl -checkend` ile daha tasinabilir hale getirildi
+- `./scripts/dev-up.sh`, persist edilmis Postgres/Mongo volume'leri verilen credential'lari kabul etmezse erken fail eder; boylece sahte "stack started" durumlari azalir (`SKIP_DATA_CREDENTIAL_CHECK=true` sadece gecici bypass icindir)
+- dev scriptleri, WSL uzerinde varsayilan `docker` komutu kullanilamaz Podman shim'ine gidiyorsa Docker Desktop `docker.exe` binary'sini otomatik secer
 
 ## 5. Performans kontrolleri
 

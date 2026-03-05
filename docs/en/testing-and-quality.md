@@ -30,17 +30,27 @@ If the environment does not provide a system `cc`, use the repository helper:
 
 ```bash
 cd frontend && bun run lint
-cd frontend && ./node_modules/.bin/astro check
-cd frontend && ./node_modules/.bin/astro build
-cd frontend && node ./scripts/smoke.mjs
+cd frontend && bun run check
+cd frontend && bun run build
+cd frontend && bun run smoke
+cd frontend && bun run test
 cd frontend && bun run e2e:bootstrap
-cd frontend && ./scripts/run-playwright.sh
+cd frontend && bunx playwright install chromium
+cd frontend && bun run e2e
 ```
 
 Optional API-backed smoke:
 
 ```bash
 cd frontend && SMOKE_API_BASE_URL=http://127.0.0.1:8080 node ./scripts/smoke.mjs
+```
+
+Local full-stack rehearsal (WSL + Docker Desktop example):
+
+```bash
+DOCKER_BIN="/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe" ./scripts/dev-doctor.sh
+DOCKER_BIN="/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe" ./scripts/dev-up.sh standard
+DOCKER_BIN="/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe" ./scripts/rehearse-release-evidence-local.sh ./.env.docker.local ./artifacts/local-release-evidence
 ```
 
 ## 4. Governance checks
@@ -54,6 +64,14 @@ cd frontend && SMOKE_API_BASE_URL=http://127.0.0.1:8080 node ./scripts/smoke.mjs
 ./scripts/check-doc-drift.sh --mode strict
 ./scripts/check-release-policy-drift.sh
 ./scripts/release-gate.sh fast
+```
+
+Fallback for strict shells where `git` is unavailable:
+
+```bash
+GIT_BIN=__missing_git__ \
+DOC_DRIFT_CHANGED_FILES="backend/services/api-gateway/internal/incidents/monitor.go,README.md,docs/appfoundrylab-teknik-analiz.md,docs/gelistirmePlanı.md" \
+./scripts/check-doc-drift.sh --mode strict
 ```
 
 Notes:
@@ -72,6 +90,9 @@ Notes:
 - `./scripts/local-ci-smoke.sh` chains dev script tests, release policy drift, and worker helper validation
 - `RUN_WORKER_TESTS=auto` is the default for `local-ci-smoke`; permission-limited sandboxes are skipped explicitly, while `RUN_WORKER_TESTS=true` keeps it strict
 - `./scripts/rehearse-release-evidence-local.sh` is the canonical repo-side proof that catalog, ledger, attestation, summary, and audit-export flows still work together against a real local deploy
+- operator mTLS readiness checks are now portable to BusyBox-like environments because certificate expiry verification uses `openssl -checkend` instead of GNU-specific `date -d`
+- `./scripts/dev-up.sh` now blocks early when persisted Postgres/Mongo volumes reject configured credentials, reducing false-positive "stack started" states (`SKIP_DATA_CREDENTIAL_CHECK=true` remains a temporary bypass)
+- dev scripts auto-select Docker Desktop `docker.exe` on WSL when the default `docker` command resolves to an unusable Podman shim
 
 ## 5. Performance checks
 

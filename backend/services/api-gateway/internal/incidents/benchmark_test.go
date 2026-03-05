@@ -1,28 +1,29 @@
 package incidents
 
 import (
+	"io"
+	"log"
+	"net/http"
 	"testing"
 	"time"
-    "net/http"
-    "log"
-    "io"
 
 	"github.com/example/appfoundrylab/backend/services/api-gateway/internal/handlers"
 )
 
 // A stub round tripper to mock HTTP requests
 type stubRoundTripper struct{}
+
 func (rt *stubRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-    return &http.Response{
-        StatusCode: 200,
-        Body:       http.NoBody,
-        Header:     make(http.Header),
-    }, nil
+	return &http.Response{
+		StatusCode: 200,
+		Body:       http.NoBody,
+		Header:     make(http.Header),
+	}, nil
 }
 
 func BenchmarkDispatchEvent(b *testing.B) {
-    // Disable logging for benchmark
-    log.SetOutput(io.Discard)
+	// Disable logging for benchmark
+	log.SetOutput(io.Discard)
 
 	// Create a dummy event
 	now := time.Now().UTC().Format(time.RFC3339Nano)
@@ -47,12 +48,12 @@ func BenchmarkDispatchEvent(b *testing.B) {
 	}
 
 	m := &Monitor{
-		sink: "logger,stdout,webhook",
+		sink:           "logger,stdout,webhook",
 		loggerEndpoint: "http://example.com/logger",
-		webhookURL: "http://example.com/webhook",
-        client: &http.Client{
-            Transport: &stubRoundTripper{},
-        },
+		webhookURL:     "http://example.com/webhook",
+		client: &http.Client{
+			Transport: &stubRoundTripper{},
+		},
 	}
 
 	b.ResetTimer()

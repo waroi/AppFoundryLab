@@ -10,7 +10,7 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: "./node_modules/.bin/astro build && node ./scripts/e2e-server.mjs",
+    command: "bun run build && node ./scripts/e2e-server.mjs",
     url: `http://127.0.0.1:${port}`,
     reuseExistingServer: false,
     timeout: 180000,
