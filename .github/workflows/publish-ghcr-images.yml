@@ -21,7 +21,7 @@ jobs:
       release_source_sha: ${{ steps.manifest.outputs.release_source_sha }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set image names
         run: |
@@ -190,7 +190,7 @@ jobs:
     needs: publish
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Login to GHCR
         uses: docker/login-action@v3
