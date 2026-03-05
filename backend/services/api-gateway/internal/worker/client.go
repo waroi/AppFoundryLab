@@ -20,28 +20,30 @@ type Client struct {
 	client workerpb.WorkerServiceClient
 }
 
-func NewClient(ctx context.Context) (*Client, error) {
+func NewClient(_ context.Context) (*Client, error) {
+	// grpc.NewClient is non-blocking; connection is established lazily on first RPC call.
+	// The context parameter is retained for API compatibility but is not used for dial.
 	endpoint := os.Getenv("WORKER_GRPC_ENDPOINT")
 	if endpoint == "" {
 		endpoint = "calculator:7070"
 	}
 
-	dialOpts := []grpc.DialOption{grpc.WithBlock()}
 	tlsMode := env.GetWithDefault("WORKER_GRPC_TLS_MODE", "mtls")
 
+	var dialOpt grpc.DialOption
 	if tlsMode == "insecure" {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		dialOpt = grpc.WithTransportCredentials(insecure.NewCredentials())
 	} else {
 		tlsConfig, err := loadClientTLSConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure grpc tls: %w", err)
 		}
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+		dialOpt = grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))
 	}
 
-	conn, err := grpc.DialContext(ctx, endpoint, dialOpts...)
+	conn, err := grpc.NewClient(endpoint, dialOpt)
 	if err != nil {
-		return nil, fmt.Errorf("grpc dial failed: %w", err)
+		return nil, fmt.Errorf("grpc client create failed: %w", err)
 	}
 
 	return &Client{conn: conn, client: workerpb.NewWorkerServiceClient(conn)}, nil

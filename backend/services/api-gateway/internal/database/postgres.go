@@ -24,10 +24,10 @@ func PostgresPool(ctx context.Context) (*pgxpool.Pool, error) {
 			pgErr = err
 			return
 		}
-		cfg.MaxConns = 20
-		cfg.MinConns = 2
-		cfg.MaxConnLifetime = 30 * time.Minute
-		cfg.MaxConnIdleTime = 5 * time.Minute
+		cfg.MaxConns = int32(env.GetIntWithDefault("PG_POOL_MAX_CONNS", 20))
+		cfg.MinConns = int32(env.GetIntWithDefault("PG_POOL_MIN_CONNS", 2))
+		cfg.MaxConnLifetime = time.Duration(env.GetIntWithDefault("PG_POOL_MAX_CONN_LIFETIME_MIN", 30)) * time.Minute
+		cfg.MaxConnIdleTime = time.Duration(env.GetIntWithDefault("PG_POOL_MAX_CONN_IDLE_TIME_MIN", 5)) * time.Minute
 
 		pgPool, pgErr = pgxpool.NewWithConfig(ctx, cfg)
 	})
