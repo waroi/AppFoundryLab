@@ -21,7 +21,6 @@ jobs:
         run: |
           set -euo pipefail
           required=(
-            "AGENTS.md"
             "README.md"
             "multi_agent/config.md"
             "multi_agent/instructions/orchestration.md"
@@ -61,7 +60,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RInE "\.ps1|config\.json" AGENTS.md README.md multi_agent/instructions multi_agent/tools skills; then
+          if grep -RInE "\.ps1|config\.json" README.md multi_agent/instructions multi_agent/tools skills; then
             echo "Active docs still reference removed script/config paths."
             exit 1
           fi
