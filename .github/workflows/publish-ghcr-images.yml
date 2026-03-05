@@ -173,7 +173,7 @@ jobs:
             "$RELEASE_EVIDENCE_AUDIT_TARGET"
 
       - name: Upload release manifest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ghcr-release-manifest
           path: |
@@ -227,7 +227,7 @@ jobs:
 
       - name: Upload validation artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ghcr-image-validation
           path: artifacts/ghcr-validation
