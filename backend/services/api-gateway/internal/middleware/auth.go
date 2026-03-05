@@ -60,11 +60,6 @@ func AuthenticateJWT(next http.Handler) http.Handler {
 			return
 		}
 
-		if claims.ExpiresAt == nil || claims.ExpiresAt.Time.Before(time.Now().Add(-leeway)) {
-			httpx.WriteError(w, r, http.StatusUnauthorized, "token_expired", "token expired", nil)
-			return
-		}
-
 		ctx := context.WithValue(r.Context(), claimsContextKey, claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
