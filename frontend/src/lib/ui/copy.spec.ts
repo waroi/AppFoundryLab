@@ -1,25 +1,52 @@
-import { describe, it, expect } from "bun:test";
-import { translateError } from "./copy";
+import { describe, expect, test } from "bun:test";
+import { renderTemplate } from "./copy";
 
-describe("translateError", () => {
-  it("returns the English mapped error message for a known code", () => {
-    expect(translateError("en", "network_error")).toBe("Network error");
-    expect(translateError("en", "login_required")).toBe("Sign in before running this action.");
-  });
+describe("renderTemplate", () => {
+	test("replaces single key with corresponding value", () => {
+		const template = "Hello {name}!";
+		const values = { name: "World" };
+		expect(renderTemplate(template, values)).toBe("Hello World!");
+	});
 
-  it("returns the Turkish mapped error message for a known code", () => {
-    expect(translateError("tr", "network_error")).toBe("Ag hatasi");
-    expect(translateError("tr", "login_required")).toBe("Bu islemi calistirmadan once giris yapin.");
-  });
+	test("replaces multiple occurrences of the same key", () => {
+		const template = "{word} {word} {word}";
+		const values = { word: "test" };
+		expect(renderTemplate(template, values)).toBe("test test test");
+	});
 
-  it("returns the original error code when the code is unknown", () => {
-    const unknownCode = "some_random_error_code";
-    expect(translateError("en", unknownCode)).toBe(unknownCode);
-    expect(translateError("tr", unknownCode)).toBe(unknownCode);
-  });
+	test("replaces multiple different keys", () => {
+		const template = "{greeting} {name}, today is {day}.";
+		const values = { greeting: "Hi", name: "Alice", day: "Monday" };
+		expect(renderTemplate(template, values)).toBe("Hi Alice, today is Monday.");
+	});
 
-  it("falls back to the default locale (en) for an unknown locale", () => {
-    // @ts-expect-error - intentionally passing an invalid locale
-    expect(translateError("fr", "network_error")).toBe("Network error");
-  });
+	test("replaces missing keys with empty string", () => {
+		const template = "Hello {name}!";
+		const values = {};
+		expect(renderTemplate(template, values)).toBe("Hello !");
+	});
+
+	test("ignores extra keys in values record", () => {
+		const template = "Hello {name}!";
+		const values = { name: "World", extra: "ignore me" };
+		expect(renderTemplate(template, values)).toBe("Hello World!");
+	});
+
+	test("works with an empty template", () => {
+		const template = "";
+		const values = { key: "value" };
+		expect(renderTemplate(template, values)).toBe("");
+	});
+
+	test("works with template without any keys", () => {
+		const template = "No keys here.";
+		const values = { key: "value" };
+		expect(renderTemplate(template, values)).toBe("No keys here.");
+	});
+
+	test("handles numbers as strings in values", () => {
+		const template = "Count: {count}";
+		const values = { count: "42" };
+		expect(renderTemplate(template, values)).toBe("Count: 42");
+	});
 });
