@@ -10,10 +10,11 @@
     "smoke": "node scripts/smoke.mjs",
     "e2e:bootstrap": "../scripts/bootstrap-playwright-linux.sh --frontend-dir .",
     "e2e": "playwright test",
+    "e2e:live": "node ./node_modules/playwright/cli.js test --config playwright.live.config.mjs",
     "check": "astro check",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "test": "vitest run"
+    "test": "node ./node_modules/vitest/vitest.mjs run"
   },
   "dependencies": {
     "@astrojs/svelte": "^7.2.5",

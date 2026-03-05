@@ -92,7 +92,7 @@ const copy = {
       grpcWorker: "gRPC Worker",
       authTitle: "JWT Login (RBAC)",
       authHelper:
-        "Use the bootstrap credentials printed by ./scripts/bootstrap.sh or stored in .env.",
+        "Use admin or developer credentials from ./scripts/bootstrap.sh output or .env.docker.local.",
       username: "username",
       password: "password",
       loginButton: "Login + Load Users",
@@ -281,7 +281,7 @@ const copy = {
       grpcWorker: "gRPC Worker",
       authTitle: "JWT Girisi (RBAC)",
       authHelper:
-        "./scripts/bootstrap.sh tarafindan yazdirilan veya .env icinde duran bootstrap bilgilerini kullanin.",
+        "./scripts/bootstrap.sh cikisindaki veya .env.docker.local icindeki admin/gelistirici bilgilerini kullanin.",
       username: "kullanici",
       password: "sifre",
       loginButton: "Giris Yap ve Kullanicilari Yukle",

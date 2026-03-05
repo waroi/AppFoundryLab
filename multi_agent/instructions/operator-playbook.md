@@ -1,70 +1,27 @@
 # Operator Playbook
 
 Purpose:
-- Provide practical operating rules for reliable `xN` orchestration in this workspace.
+- Help the orchestrator choose the right team shape with the least waste.
 
-## xN Selection Guide
-- `x1`: small, local changes, quick fixes, low risk.
-- `x2-x4`: standard implementation tasks with review needs.
-- `x5-x8`: cross-cutting tasks (architecture + QA + security + research lanes).
-- `x9-x12`: deep audits, migration plans, or high-uncertainty multi-stream work.
+## Quick Selection
+- `x1`: one owner, narrow critical task, low coordination need.
+- `x2-x4`: architecture + implementation + research, limited blast radius.
+- `x5-x9`: mixed work that needs risk and delivery coverage but not a fixed full squad.
+- `x10`: strategy-heavy or governance-heavy work across architecture, risk, delivery, and integration.
+- `x12`: true full-stack delivery where dedicated frontend and backend lanes are both required.
+- `x13`: `x12` plus one routing-matched optional specialist.
+- `x14`: `x12` plus both optional specialists.
 
-## Prompt Quality Rules
-- Include outcome + scope + constraints in one prompt.
-- Include affected layers or modules when known.
-- Include explicit risk focus when relevant (`security`, `regression`, `performance`, `ux`).
-- Keep prompt concrete; avoid broad intent-only prompts.
+## Intent-First Routing Hints
+- API contract, schema, SDK, webhook, OpenAPI -> prefer `x13` or `x14` with `api_integration_engineer`.
+- Documentation, onboarding, runbook, handbook, ADR -> prefer `x13` or `x14` with `documentation_analyst`.
+- Release, rollback, canary, production, outage -> treat as release-oriented and expect guard-lane hard gates.
 
-## Default Workflow
-1. Run dispatch rule: `multi_agent/tools/dispatch.rule.md`.
-2. Run brief rule: `multi_agent/tools/generate-brief.rule.md`.
-3. Run orchestration lifecycle rule: `multi_agent/tools/orchestrate-run.rule.md`.
-4. Collect agent memos in run `handoffs/` using `multi_agent/instructions/handoff-format.md`.
-5. Run summary rule: `multi_agent/tools/summarize-handoffs.rule.md`.
-6. Run conflict rule: `multi_agent/tools/detect-conflicts.rule.md`.
-7. Run validation checklist: `multi_agent/tools/validate-setup.rule.md`.
-8. Generate text and json outputs in markdown as required by rule files.
-
-## Escalation Criteria
-- Escalate to `x5+` when:
-  - requirements are ambiguous or contradictory
-  - multiple risk classes apply (security + reliability + UX)
-  - impact crosses architecture boundaries
-- Security escalation required when:
-  - auth/authz logic changes
-  - token/session/secret handling changes
-  - externally reachable sensitive paths are modified
-
-## Review Thresholds
-- Blocking:
-  - unresolved security high-risk finding
-  - unresolved regression-critical gap (QA Guardian)
-  - conflicting architecture decision without Team Lead resolution
-- Non-blocking but tracked:
-  - medium risks with clear mitigation and owner
-  - optional improvements without release impact
-
-## Telemetry and Budget Guardrails
-- Check `## Telemetry` in brief and summary artifacts.
-- Brief generator uses compact mode automatically on high `xN` to reduce delegation-pack overhead.
-- Check run-level telemetry in run metadata (`run.json -> telemetry.scorecard`).
-- Track trend in `run.json -> telemetry.trend` to detect token growth across runs.
-- If `status=over_budget`:
-  - reduce prompt/context size
-  - split task into smaller scoped runs
-  - decrease N when duplicate findings are observed
-
-## Phase 3 Reliability Notes
-- High `xN` assignments now use adaptive balancing with per-role caps and overflow logic.
-- Every orchestration run now includes `conflicts.md/conflicts.json` for contradiction triage.
-- CI baseline is available at `.github/workflows/multi-agent-validation.yml`.
-
-## Runtime Hygiene
-- Keep run artifacts under `multi_agent/runtime/runs/`.
-- Apply retention cleanup rules in `multi_agent/tools/cleanup-runtime.rule.md`.
-- Record cleanup reports as markdown in `multi_agent/runtime/cleanup-report-<timestamp>.md`.
-
-## Scriptless Governance
-- PowerShell scripts are intentionally removed from orchestration operations.
-- Behavior compatibility is preserved through rule contracts and templates in `multi_agent/tools/`.
-- If workflow changes are needed, update rule docs first, then roles/prompts/AGENTS references.
+## Execution Guidance
+1. Run project context discovery first.
+2. Prefer routing-inserted specialists before increasing expensive model count.
+3. Delegate by pods for `x10+`, otherwise by slot.
+4. Make `clean-code` mandatory in every coding or code-review lane.
+5. Respect `data_sensitivity` and pass restricted context only as redacted evidence anchors.
+6. Keep live reporting visible throughout the run using the canonical table format.
+7. End every cycle with deep analysis, doc sync, metrics update, and score refresh.

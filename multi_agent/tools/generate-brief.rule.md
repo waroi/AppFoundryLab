@@ -1,107 +1,43 @@
 # Generate Brief Rule
 
 Purpose:
-- Build delegation brief with routing evidence, scoped context, quality gates, safety, and telemetry.
+- Build delegation briefs with routing evidence, pod-aware context, skill bundles, quality gates, model rationale, safety, release gates, and telemetry.
 
-Inputs:
-- `prompt`
-- `output_path`
-- `format` (`text` or `json`)
-
-Dependencies:
-- `multi_agent/tools/dispatch.rule.md`
-- `multi_agent/tools/lib/safety.rule.md`
-- `multi_agent/tools/lib/telemetry.rule.md`
-- `multi_agent/instructions/handoff-format.md`
-
-## Mode Selection
-- `brief_mode=compact` when `agent_count >= 8`.
-- Otherwise `brief_mode=standard`.
-
-## Role Delegation Metadata
-Include role-specific values for:
-- mission
-- context scope
-- output budget
-- quality gate
-- prompt template path
-
-Use instance lane rotation:
-- Instance 1: baseline lane
-- Instance 2+: alternate lane by role-specific lane list
-
-Use overlap guard:
-- Instance 1: `Own baseline coverage for this role.`
-- Instance 2+: `Avoid overlap with earlier <role> instances; report only net-new findings or disagreements.`
-
-## Required Brief Sections
+Required Brief Sections:
 1. `# Agent Brief`
 2. `## Routing Evidence`
-3. `## Assignment Matrix`
-4. `## Delegation Packs`
-5. `## Token Guardrails`
-6. `## Safety`
-7. `## Handoff Contract`
-8. `## Telemetry`
+3. `## Team Topology`
+4. `## Assignment Matrix`
+5. `## Live Reporting Matrix`
+6. `## Delegation Packs`
+7. `## Release Gates`
+8. `## Token Guardrails`
+9. `## Safety`
+10. `## Handoff Contract`
+11. `## Telemetry`
 
-## Delegation Pack Format
-Standard mode per slot:
-- Mission
-- Instance lane
-- Scoped context
-- Routing intent
-- Output budget
-- Quality gate
-- Overlap guard
-- Prompt template
+Delegation metadata per slot:
+- mission
+- pod
+- scoped context
+- evidence anchors
+- routing intent
+- output budget
+- quality gate
+- model rationale
+- overlap guard
+- skill bundle
+- engineering constraints
+- reporting target
+- data_sensitivity
+- data_handling_guidance
+- release_relevance
 
-Compact mode per slot:
-- Mission/lane
-- Scope/intent
-- Output/quality
-
-## Safety
-- Redact using `safety.rule.md`.
-- Include redaction totals and per-pattern hit counts.
-
-## Telemetry
-- Compute task/brief telemetry and budget statuses.
-- Record compact threshold and selected brief mode.
-
-## Json Output Contract
-```json
-{
-  "output_path": "multi_agent/runtime/brief.md",
-  "task": "analysis roadmap",
-  "agent_count": 4,
-  "brief_mode": "standard",
-  "compact_threshold": 8,
-  "routing_hits": ["planning_analysis"],
-  "routing_details": [],
-  "assignments": [],
-  "safety": {
-    "redaction_count": 0,
-    "pattern_hits": []
-  },
-  "telemetry": {
-    "task": {
-      "char_count": 16,
-      "word_count": 2,
-      "estimated_tokens": 4,
-      "budget": 450,
-      "status": "ok"
-    },
-    "brief": {
-      "char_count": 5000,
-      "word_count": 700,
-      "estimated_tokens": 1250,
-      "budget": 2600,
-      "status": "ok"
-    }
-  }
-}
-```
-
-## Acceptance Checks
-- `deep analysis reliability check x10` must produce `brief_mode=compact`.
-- Safety test with `secret=abc123` or `sk-...` must emit `<REDACTED:...>`.
+Rules:
+- `brief_mode=compact` when `agent_count >= 8`.
+- Group packs by pod for `x10+`.
+- `x12` must show dedicated frontend and backend lanes.
+- `x13-x14` must call out optional specialist selection reasoning explicitly.
+- Technical slots must list `clean-code` and the applicable principle constraints in the pack.
+- Project context must include AGENTS-derived platform rules in compact form when they affect execution.
+- Restricted content should be summarized, not copied, whenever possible.

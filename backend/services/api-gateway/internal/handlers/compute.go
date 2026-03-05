@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	fibonacciMaxN   = 1000
+	fibonacciMaxN   = 93
 	hashMaxInputLen = 4096
 )
 
@@ -32,7 +32,7 @@ func NewComputeHandler(workerClient *worker.Client) *ComputeHandler {
 
 func validateFibonacciRequest(n uint32) (string, string, bool) {
 	if n > fibonacciMaxN {
-		return "n_out_of_range", "n must be between 0 and 1000", false
+		return "n_out_of_range", "n must be between 0 and 93", false
 	}
 	return "", "", true
 }

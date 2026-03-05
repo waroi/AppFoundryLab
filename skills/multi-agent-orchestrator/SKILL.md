@@ -1,21 +1,22 @@
-# Skill: multi-agent-orchestrator
+---
+name: multi-agent-orchestrator
+description: Scriptless orchestration skill for xN-driven multi-agent execution, squad selection, routing, brief generation, live reporting, review chain, and end-of-cycle audit. Use when a prompt ends with `xN` or when multi-agent delegation is explicitly requested.
+---
 
-Use this skill when a user prompt ends with `xN` to activate multi-agent orchestration.
+# Skill: multi-agent-orchestrator
 
 Workflow:
 1. Read `AGENTS.md` and `multi_agent/instructions/orchestration.md`.
-2. Parse trailing `xN` with rules in `multi_agent/tools/lib/routing-engine.rule.md`.
-3. Allocate roles using `multi_agent/config.md` (primary + routing + fallback + overflow).
-4. Produce dispatch artifact using `multi_agent/tools/dispatch.rule.md`.
-5. Produce/update brief using `multi_agent/tools/generate-brief.rule.md`.
-6. Delegate tasks using templates in `multi_agent/prompts/`.
-7. Collect handoff memos using `multi_agent/instructions/handoff-format.md`.
-8. Summarize handoffs with `multi_agent/tools/summarize-handoffs.rule.md`.
-9. Detect contradictions with `multi_agent/tools/detect-conflicts.rule.md`.
-10. Run final checklist from `multi_agent/tools/validate-setup.rule.md`.
-11. Team Lead integrates outputs and prepares the final response.
+2. Read `multi_agent/instructions/clean-code-standards.md` before dispatching any coding or code-review lane.
+3. Run project context discovery.
+4. Parse trailing `xN` with `multi_agent/tools/lib/routing-engine.rule.md`.
+5. Allocate agents using `multi_agent/config.md`.
+6. Generate dispatch and brief artifacts.
+7. Emit live status reporting during execution.
+8. Collect handoffs, apply review chain, and enforce clean-code blockers.
+9. Update memory, metrics, docs, and score tables at the end of the cycle.
 
 Notes:
-- Keep context minimal for each agent.
-- Ask the user only if a single clarification is required.
-- Produce both markdown text and fenced json payloads when rule contracts require automation outputs.
+- `x10` means the principal core squad.
+- `x12` means the full-stack enterprise squad.
+- Keep context and skill loading minimal per slot.

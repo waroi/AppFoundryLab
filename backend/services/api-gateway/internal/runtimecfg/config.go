@@ -203,8 +203,10 @@ func ResolveLocalAuthMode() string {
 	switch mode {
 	case "generated", "disabled":
 		return mode
-	default:
+	case "demo":
 		return "demo"
+	default:
+		return "generated"
 	}
 }
 

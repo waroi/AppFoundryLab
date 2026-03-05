@@ -164,7 +164,11 @@ exit 0
 EOF
   cat > "$fakebin/curl" <<EOF
 #!/usr/bin/env bash
-echo "\${@: -1}" >> "$curl_log"
+url="\${@: -1}"
+echo "\$url" >> "$curl_log"
+if [[ "\$url" == *"/api/v1/auth/token" ]]; then
+  printf '{"accessToken":"test-token"}'
+fi
 exit 0
 EOF
   chmod +x "$fakebin/docker" "$fakebin/curl"
@@ -172,12 +176,17 @@ EOF
   (
     cd "$fixture"
     PATH="$fakebin:$PATH" ./scripts/dev-up.sh minimal security >"$output_file"
-    PATH="$fakebin:$PATH" ./scripts/dev-down.sh security >/tmp/test-dev-scripts-dev-down.out
+    PATH="$fakebin:$PATH" ./scripts/dev-down.sh security --volumes >/tmp/test-dev-scripts-dev-down.out
   )
 
   assert_contains "$log_file" "compose --env-file $fixture/.env.docker.local -f $fixture/docker-compose.yml -f $fixture/docker-compose.security.yml up --build -d"
-  assert_contains "$log_file" "compose --env-file $fixture/.env.docker.local -f $fixture/docker-compose.yml -f $fixture/docker-compose.security.yml down"
-  assert_contains "$curl_log" "http://127.0.0.1:18081/health/live"
+  assert_contains "$log_file" "compose --env-file $fixture/.env.docker.local -f $fixture/docker-compose.yml -f $fixture/docker-compose.security.yml down --volumes"
+  assert_contains "$curl_log" "http://127.0.0.1:18081/health/ready"
+  assert_contains "$curl_log" "http://127.0.0.1:18091/health"
+  assert_contains "$curl_log" "http://127.0.0.1:18091/metrics"
+  assert_contains "$curl_log" "http://127.0.0.1:18081/api/v1/auth/token"
+  assert_contains "$curl_log" "http://127.0.0.1:18081/api/v1/admin/runtime-report"
+  assert_contains "$curl_log" "http://127.0.0.1:4400/healthz"
   assert_contains "$curl_log" "http://127.0.0.1:4400"
   assert_contains "$output_file" "frontend: http://127.0.0.1:4400"
   assert_contains "$output_file" "api: http://127.0.0.1:18081"
@@ -285,7 +294,11 @@ exit 1
 EOF
   cat > "$fakebin/curl.exe" <<EOF
 #!/usr/bin/env bash
-echo "\${@: -1}" >> "$curl_exe_log"
+url="\${@: -1}"
+echo "\$url" >> "$curl_exe_log"
+if [[ "\$url" == *"/api/v1/auth/token" ]]; then
+  printf '{"accessToken":"test-token"}'
+fi
 exit 0
 EOF
   chmod +x "$fakebin/docker.exe" "$fakebin/curl" "$fakebin/curl.exe"
@@ -308,7 +321,12 @@ EOF
   assert_contains "$env_log_file" "FRONTEND_HOST_PORT=5500"
   assert_contains "$env_log_file" "API_GATEWAY_HOST_PORT=18082"
   assert_contains "$env_log_file" "LOGGER_HOST_PORT=18092"
-  assert_contains "$curl_exe_log" "http://127.0.0.1:18082/health/live"
+  assert_contains "$curl_exe_log" "http://127.0.0.1:18082/health/ready"
+  assert_contains "$curl_exe_log" "http://127.0.0.1:18092/health"
+  assert_contains "$curl_exe_log" "http://127.0.0.1:18092/metrics"
+  assert_contains "$curl_exe_log" "http://127.0.0.1:18082/api/v1/auth/token"
+  assert_contains "$curl_exe_log" "http://127.0.0.1:18082/api/v1/admin/runtime-report"
+  assert_contains "$curl_exe_log" "http://127.0.0.1:5500/healthz"
   assert_contains "$curl_exe_log" "http://127.0.0.1:5500"
   assert_contains "$output_file" "frontend: http://127.0.0.1:5500"
 }

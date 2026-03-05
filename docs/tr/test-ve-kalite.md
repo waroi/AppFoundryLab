@@ -1,124 +1,78 @@
 # Test ve Kalite
 
-## 1. Backend testleri
+## 1. Frontend dogrulama katmanlari
 
-Tum Go testlerini calistir:
+Hizli utility ve component dogrulamasi:
 
 ```bash
-cd backend && go test ./...
+cd frontend
+../.toolchain/bun/bin/bun run lint
+../.toolchain/bun/bin/bun run check
+../.toolchain/bun/bin/bun run build
+../.toolchain/bun/bin/bun run smoke
+../.toolchain/bun/bin/bun run test
 ```
 
-Odakli bir entegrasyon testi:
+Mock-backed browser regresyonu:
 
 ```bash
-cd backend && go test ./services/api-gateway/cmd/api-gateway -run TestIntegrationAuthProtectedWorkerLoggerMetrics
+cd frontend
+../.toolchain/bun/bin/bun run e2e
 ```
 
-## 2. Worker testleri
+Gercek yerel stack browser smoke:
 
 ```bash
-cd backend/core/calculator && cargo test
+cd frontend
+../.toolchain/bun/bin/bun run e2e:live
 ```
 
-Ortamda sistem `cc` yoksa depo icindeki yardimci scripti kullanin:
+`bun` PATH'te yoksa `../.toolchain/bun/bin/bun` kullanin.
+
+## 2. Backend ve worker dogrulamasi
+
+Go testleri:
 
 ```bash
-./scripts/run-worker-tests.sh
+cd backend
+/mnt/d/w/AppFoundryLab/.toolchain/go/bin/go test ./...
 ```
 
-## 3. Frontend kontrolleri
+Rust worker testleri:
 
 ```bash
-cd frontend && bun run lint
-cd frontend && bun run check
-cd frontend && bun run build
-cd frontend && bun run smoke
-cd frontend && bun run test
-cd frontend && bun run e2e:bootstrap
-cd frontend && bunx playwright install chromium
-cd frontend && bun run e2e
+cd backend/core/calculator
+cargo test
 ```
 
-Opsiyonel API baglantili smoke:
+Host toolchain `backend/go.mod` ile ayni baseline'da degilse, Faz 1 toolchain hizalamasina kadar container build'leri ve odakli yerel kontroller gecici fallback olarak ele alinmalidir.
+
+## 3. Script ve release kapilari
 
 ```bash
-cd frontend && SMOKE_API_BASE_URL=http://127.0.0.1:8080 node ./scripts/smoke.mjs
-```
-
-Yerel full-stack prova (WSL + Docker Desktop ornegi):
-
-```bash
-DOCKER_BIN="/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe" ./scripts/dev-doctor.sh
-DOCKER_BIN="/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe" ./scripts/dev-up.sh standard
-DOCKER_BIN="/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe" ./scripts/rehearse-release-evidence-local.sh ./.env.docker.local ./artifacts/local-release-evidence
-```
-
-## 4. Governance kontrolleri
-
-```bash
-./scripts/quality-gate.sh sandbox-safe
-./scripts/quality-gate.sh host-strict
 ./scripts/test-dev-scripts.sh
 ./scripts/local-ci-smoke.sh
-./scripts/check-toolchain.sh
+./scripts/quality-gate.sh sandbox-safe
+./scripts/quality-gate.sh host-strict
+./scripts/quality-gate.sh ci-full
 ./scripts/check-doc-drift.sh --mode strict
 ./scripts/check-release-policy-drift.sh
 ./scripts/release-gate.sh fast
+./scripts/release-gate.sh full
 ```
 
-`git` binary'si olmayan strict shell ortamlarinda fallback:
+`ci-full` artik `ci-fast` kopyasi degil; tam release gate'i de calistirir.
 
-```bash
-GIT_BIN=__missing_git__ \
-DOC_DRIFT_CHANGED_FILES="backend/services/api-gateway/internal/incidents/monitor.go,README.md,docs/appfoundrylab-teknik-analiz.md,docs/gelistirmePlanı.md" \
-./scripts/check-doc-drift.sh --mode strict
-```
+## 4. Her katman neyi kanitlar
 
-Notlar:
+- `smoke`: static build isaretcileri ve opsiyonel API kontrat probe'lari
+- `e2e`: selector, locale/theme davranisi ve mock-backed UI regresyonu
+- `e2e:live`: kullanicinin tarayicidan birebir tekrar edebilecegi Docker-backed happy path
+- `dev-up`: basari demeden once readiness ve bir authenticated admin smoke
+- `release-gate.sh full`: repo ici static kontroller, Go testleri, Rust testleri ve frontend build/smoke
 
-- `./scripts/quality-gate.sh sandbox-safe`, izin kisitli sandbox ortamlar icin varsayilan kapidir; worker dogrulamasinin acik skip moduna dusmesine izin verir
-- `./scripts/quality-gate.sh host-strict`, PR acmadan once gelistirici makinesinde onerilen tam kapidir
-- CI `./scripts/quality-gate.sh ci-fast`, nightly kapsama ise `./scripts/quality-gate.sh ci-full` kullanir
-- admin runtime diagnostics artik frontend panelinin kullandigi ayni JSON icinde alert-odakli ozet, breach sayisi ve onerilen aksiyonlar da sunar
-- runtime diagnostics yolu artik cache'lenmis snapshot'i tekrar kullanir, external probe'lari paralel toplar ve request loglarini cekirdek admin raporundan sonra yukler
-- incident report ve kalici incident journal handler'lari artik gateway handler test paketinde odakli sekilde dogrulanir
-- `node ./scripts/smoke.mjs` artik locale-sensitive sayfa metni yerine SSR-stable frontend isaretcilerini dogrular
-- locale/theme dogrulamasi `/`, `/test`, `/tr` ve `/tr/test`, sag ust toolbar, URL gecisleri, theme kaliciligi ve `html[lang]` ile `html[data-theme]` uzerinden yapilmalidir
-- frontend e2e selector'lari gorunur cevrilmis metin yerine `data-testid` veya `data-*` isaretcilerini tercih etmelidir
-- `./scripts/test-dev-scripts.sh`, gercek workspace'i bozmadan temp fixture icinde `bootstrap`, `dev-doctor`, `dev-up` ve `dev-down` davranisini dogrular
-- `./scripts/test-dev-scripts.sh`, buna ek olarak S3 backup sync, release-evidence summary export, audit export, ledger attestation, operator mTLS sertifika uretimi/hazirlik kontrolu, local evidence rehearsal ve Playwright bootstrap davranisini, Linux runtime kutuphaneleri icin package-version fallback dahil olacak sekilde dogrular
-- `./scripts/local-ci-smoke.sh`, dev script testleri, release policy drift ve worker helper dogrulamasini tek akista toplar
-- `local-ci-smoke` icin varsayilan `RUN_WORKER_TESTS=auto` modudur; izin kisitli sandbox ortamlarini acikca skip eder, `RUN_WORKER_TESTS=true` ise strict davranir
-- `./scripts/rehearse-release-evidence-local.sh`, katalog, ledger, attestation, summary ve audit-export akislarinin gercek yerel deploy uzerinde birlikte calistigini kanitlayan kanonik repo ici dogrulamadir
-- operator mTLS readiness kontrolunde sertifika gecerlilik denetimi GNU `date -d` bagimliligindan cikarilip `openssl -checkend` ile daha tasinabilir hale getirildi
-- `./scripts/dev-up.sh`, persist edilmis Postgres/Mongo volume'leri verilen credential'lari kabul etmezse erken fail eder; boylece sahte "stack started" durumlari azalir (`SKIP_DATA_CREDENTIAL_CHECK=true` sadece gecici bypass icindir)
-- dev scriptleri, WSL uzerinde varsayilan `docker` komutu kullanilamaz Podman shim'ine gidiyorsa Docker Desktop `docker.exe` binary'sini otomatik secer
+## 5. Halen acik bosluklar
 
-## 5. Performans kontrolleri
-
-```bash
-./scripts/run-k6-smoke.sh
-./scripts/run-k6-scenario.sh spike
-./scripts/run-k6-scenario.sh soak
-```
-
-## 6. Yeni test yazarken
-
-Kurallar:
-
-- Pozitif ve negatif senaryo ekle
-- Yetkilendirme hatalarini test et
-- Contract sekli degisiyorsa onu test et
-- Davranis env var'a bagliysa operasyonel kenar durumlari test et
-- Frontend sunum degisikliklerinde locale degisimi, localized route navigation, theme degisimi ve theme kaliciligini test et
-- Locale/theme davranisi degisiyorsa `html[lang]` ve `html[data-theme]` assertion'i ekle
-- Stabil selector veya ham `data-*` degeri ayni davranisi ifade edebiliyorsa tek bir cevrilmis gorunur metne bagli assertion yazma
-
-## 7. Kalite calismasi ne zaman tamam sayilir
-
-Genelde su durumda guvenli kabul edilir:
-
-- ilgili yerel testler yesilse
-- CI ile uyumlu komutlar geciyorsa
-- dokuman guncellendiyse
-- yeni env var veya endpoint'ler dokumante edildiyse
+- `SystemStatus.svelte` halen fazla buyuk ve parcali bakima ihtiyac duyuyor
+- auth ve runtime hata dallari icin frontend coverage zayif
+- repo-ici Go toolchain hizalamasi `PROGRESS.md` icinde halen acik

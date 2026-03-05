@@ -213,6 +213,18 @@ code {
   color: var(--text-soft);
 }
 
+.field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field-label {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
 .field:focus-visible,
 .button-primary:focus-visible,
 .button-secondary:focus-visible,

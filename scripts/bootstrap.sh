@@ -56,6 +56,21 @@ generate_secret() {
   openssl rand -hex 24
 }
 
+apply_env_overrides_from_file() {
+  local source_file="$1"
+  local target_file="$2"
+  local line key value
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -n "$line" ]] || continue
+    [[ "$line" != \#* ]] || continue
+    [[ "$line" == *=* ]] || continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    replace_env_value "$target_file" "$key" "$value"
+  done <"$source_file"
+}
+
 resolve_local_auth_mode() {
   case "$PROFILE" in
     minimal)
@@ -114,13 +129,13 @@ main() {
 
   if [[ ! -f "$ROOT_DIR/.env" || "$FORCE" == "true" ]]; then
     cp "$ROOT_DIR/.env.example" "$ROOT_DIR/.env"
-    cat "$ROOT_DIR/presets/${PROFILE}.env" >> "$ROOT_DIR/.env"
+    apply_env_overrides_from_file "$ROOT_DIR/presets/${PROFILE}.env" "$ROOT_DIR/.env"
     created_any="true"
   fi
 
   if [[ ! -f "$ROOT_DIR/.env.docker.local" || "$FORCE" == "true" ]]; then
     cp "$ROOT_DIR/.env.docker" "$ROOT_DIR/.env.docker.local"
-    cat "$ROOT_DIR/presets/${PROFILE}.env" >> "$ROOT_DIR/.env.docker.local"
+    apply_env_overrides_from_file "$ROOT_DIR/presets/${PROFILE}.env" "$ROOT_DIR/.env.docker.local"
     created_any="true"
   fi
 

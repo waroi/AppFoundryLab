@@ -29,7 +29,6 @@ func RedisClient(ctx context.Context) (*redis.Client, error) {
 			ReadTimeout:  2 * time.Second,
 			WriteTimeout: 2 * time.Second,
 		})
-		redisErr = redisDB.Ping(ctx).Err()
 	})
 	return redisDB, redisErr
 }
