@@ -1,7 +1,10 @@
 # Cleanup Runtime Rule
 
 Purpose:
-- Apply deterministic retention and hygiene on runtime artifacts.
+- Apply deterministic retention and hygiene on generated runtime artifacts.
+
+Dependencies:
+- `multi_agent/instructions/runtime-governance.md`
 
 Inputs:
 - `runtime_root` (default `multi_agent/runtime`)
@@ -11,19 +14,24 @@ Inputs:
 - `format` (`text` or `json`)
 
 ## Run Retention
+If `runtime_root` does not exist:
+- report no-op cleanup status
+- do not treat absence as failure
+
 For `runtime/runs/*` directories (excluding `.gitkeep`):
 - Sort by `LastWriteTime desc`.
 - Remove when:
   - index >= `keep_run_count`, or
-  - older than `max_age_days`.
+  - older than `max_age_days`
 - Otherwise keep.
 
 ## Ephemeral Directory Patterns
 Top-level runtime directories matching:
 - `^tmp-`
-- `test`
 - `^validation-handoffs-`
+- `^validation-conflicts-`
 - `^conflict-audit-`
+- `^test`
 
 ## Ephemeral File Globs
 Top-level runtime files matching:
@@ -31,6 +39,10 @@ Top-level runtime files matching:
 - `*-test*.md`
 - `brief-x*.md`
 - `summary-x*.md`
+- `audit-brief-*.md`
+- `phase*-brief-*.md`
+- `stdin-brief*.md`
+- `tmp-*-summary.md`
 
 Skip `.gitkeep`.
 
@@ -39,11 +51,11 @@ Skip `.gitkeep`.
 - On delete failure, do not fail the run.
 - Record failures under `failed[]` with reason and error message.
 
-## Json Output Contract
+## JSON Output Contract
 ```json
 {
   "status": "ok",
-  "runtime_root": "D:/w/CodexA2A/multi_agent/runtime",
+  "runtime_root": "D:/w/CodexAgentDelegation/multi_agent/runtime",
   "keep_run_count": 20,
   "max_age_days": 14,
   "what_if": true,

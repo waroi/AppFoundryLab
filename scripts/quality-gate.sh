@@ -54,6 +54,7 @@ main() {
     ci-full)
       run_common_checks
       run_smoke_with_policy true
+      run_release_gate_full
       ;;
     *)
       echo "usage: ./scripts/quality-gate.sh [sandbox-safe|host-strict|ci-fast|ci-full]" >&2

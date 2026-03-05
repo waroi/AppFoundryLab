@@ -1,15 +1,8 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.4.6/schema.json",
   "files": {
-    "includes": [
-      "**",
-      "!.astro",
-      "!dist",
-      "!node_modules",
-      "!test-results",
-      "!**/*.astro",
-      "!**/*.svelte"
-    ]
+    "include": ["**"],
+    "ignore": ["dist", "node_modules", "test-results", "**/*.astro", "**/*.svelte"]
   },
   "formatter": {
     "enabled": true,
@@ -34,11 +27,7 @@
       }
     }
   },
-  "assist": {
-    "actions": {
-      "source": {
-        "organizeImports": "on"
-      }
-    }
+  "organizeImports": {
+    "enabled": true
   }
 }

@@ -335,19 +335,27 @@ async function copyIncidentSummary(): Promise<void> {
       <h3 class="font-semibold">{copy.systemStatus.authTitle}</h3>
       <p class="mt-2 text-sm text-soft">{copy.systemStatus.authHelper}</p>
       <div class="mt-2 flex flex-wrap gap-2">
-        <input
-          class="field"
-          bind:value={username}
-          placeholder={copy.systemStatus.username}
-          data-testid="login-username"
-        />
-        <input
-          class="field"
-          type="password"
-          bind:value={password}
-          placeholder={copy.systemStatus.password}
-          data-testid="login-password"
-        />
+        <label class="field-stack">
+          <span class="field-label">{copy.systemStatus.username}</span>
+          <input
+            class="field"
+            bind:value={username}
+            placeholder={copy.systemStatus.username}
+            aria-label={copy.systemStatus.username}
+            data-testid="login-username"
+          />
+        </label>
+        <label class="field-stack">
+          <span class="field-label">{copy.systemStatus.password}</span>
+          <input
+            class="field"
+            type="password"
+            bind:value={password}
+            placeholder={copy.systemStatus.password}
+            aria-label={copy.systemStatus.password}
+            data-testid="login-password"
+          />
+        </label>
         <button class="button-accent" type="button" on:click={loginAndLoad} data-testid="login-submit">
           {copy.systemStatus.loginButton}
         </button>
@@ -610,12 +618,16 @@ async function copyIncidentSummary(): Promise<void> {
                   </p>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                  <input
-                    class="field"
-                    bind:value={traceQuery}
-                    placeholder={copy.systemStatus.tracePlaceholder}
-                    data-testid="trace-query-input"
-                  />
+                  <label class="field-stack">
+                    <span class="field-label">{copy.common.trace}</span>
+                    <input
+                      class="field"
+                      bind:value={traceQuery}
+                      placeholder={copy.systemStatus.tracePlaceholder}
+                      aria-label={copy.common.trace}
+                      data-testid="trace-query-input"
+                    />
+                  </label>
                   <button
                     class="button-primary"
                     type="button"
@@ -802,13 +814,18 @@ async function copyIncidentSummary(): Promise<void> {
     <div class="mt-5 panel">
       <h3 class="font-semibold">{copy.systemStatus.fibonacciTitle}</h3>
       <div class="mt-2 flex flex-wrap items-center gap-2">
-        <input
-          class="field"
-          type="number"
-          min="0"
-          max="93"
-          bind:value={fibInput}
-        />
+        <label class="field-stack">
+          <span class="field-label">{copy.systemStatus.fibonacciTitle}</span>
+          <input
+            class="field"
+            type="number"
+            min="0"
+            max="93"
+            bind:value={fibInput}
+            aria-label={copy.systemStatus.fibonacciTitle}
+            data-testid="fibonacci-input"
+          />
+        </label>
         <button class="button-accent" type="button" on:click={runFibonacci}>
           {copy.systemStatus.compute}
         </button>

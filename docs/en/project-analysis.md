@@ -1,35 +1,44 @@
 # Project Analysis
 
-## Current state
+## Current position
 
-The repository now has a coherent single-host operations story: checkout deploy, immutable image deploy, release catalog and ledger tracking, encrypted off-host backup bundles, repeatable restore drills, Prometheus metrics scraping, and trace-correlated request log queries all live in the same workflow family.
+AppFoundryLab already has the right macro-shape for a reusable boilerplate:
+- a real frontend
+- an authenticated API gateway
+- a logger and incident surface
+- a compute worker
+- local lifecycle scripts
+- bilingual documentation
 
-## Important improvements in this iteration
+The main issue is no longer missing capability. It is truthfulness.
 
-- pinned-host SSH replaced trust-on-first-use deployment behavior
-- backup bundles now carry checksums, optional encryption, off-host sync, and retention cleanup
-- restore drills are scripted and have a disposable CI workflow counterpart
-- GHCR image publish and image-mode validation now exist alongside the original build-mode path
-- release catalogs and release-ledger JSON exports now preserve manifest history and selector-based rollback targets
-- release-evidence summaries and ledger attestations now turn the same catalog into a reusable evidence chain
-- request logs are queryable through the admin API, turning trace correlation into an operator-facing backend capability
-- Prometheus overlay adds a concrete metrics backend beyond webhook fan-out
-- Playwright browser coverage now exercises the admin trace lookup flow and restore-drill artifact preview, and Linux bootstrap is now scripted for CI and local runs
-- S3/object-storage sync is now a first-class backup profile
-- operator-facing Prometheus access now has both basic-auth and mTLS proxy variants
-- release evidence can now be exported to long-term audit storage
-- local release-evidence rehearsal now proves the full evidence chain against a real local deployment
-- S3 lifecycle drift can now be checked against the repository retention contract
-- WSL and Docker Desktop environments can now drive the ops scripts via `DOCKER_BIN`
-- runtime diagnostics now reuses a cached snapshot, collects external readiness/logger probes in parallel, and keeps admin request-log loading off the first critical render path
-- logger incident summary now uses a single Mongo aggregation path instead of multiple round-trips, which keeps the admin incident report cheaper as data grows
+## Repository-owned gaps that still remain
 
-## Remaining gaps before a defensible 10/10
+- first-run docs previously overstated maturity and under-explained the real local smoke path
+- local bring-up previously proved liveness more than usability
+- quality docs and `quality-gate.sh` semantics had drift around `ci-full`
+- auth defaults and contract edges needed safer behavior
+- the frontend validation story needed a clear split between mock-backed UI regression and real-stack browser smoke
 
-- there is no material repository-side gap left for the boilerplate itself; the remaining work is environment-owned execution in real staging or production
-- signed ledger mode still depends on provisioning `RELEASE_LEDGER_ATTESTATION_KEY` in the target environments, but the repo can now enforce failure instead of silently degrading when signed mode is required
-- performance-wise, the remaining work is evidence collection under real load rather than another repository refactor
+## What changed in this cycle
+
+- `dev-up` now validates readiness, logger reachability, and an authenticated admin runtime endpoint
+- `dev-down --volumes` keeps credential-drift recovery inside the supported workflow
+- the frontend now exposes `/healthz` and a dedicated live-stack Playwright smoke path
+- frontend `test` and Biome config were repaired so documented commands are honest again
+- Fibonacci validation now matches the worker boundary (`0..93`)
+- invalid `LOCAL_AUTH_MODE` values now fail safer by resolving to `generated`
+- README, quick-start, testing docs, technical analysis, and `PROGRESS.md` now tell the same story
+
+## What is still open
+
+- repo-local Go toolchain alignment
+- broader dependency recovery strategy across Postgres/Redis/Mongo
+- decomposition and deeper test coverage for `SystemStatus.svelte`
+- evidence export redaction and signed-attestation enforcement for higher environments
 
 ## Recommendation
 
-Keep the monorepo. Treat the current stack as the operational baseline, then focus on first-run live-host evidence harvests, signed-attestation rollout, and normal certificate/key rotation hygiene instead of jumping to a heavier platform.
+Treat the project as a production-shaped starter with an optional advanced ops surface.
+Keep the current topology.
+Invest next in runtime hardening, maintainability, and evidence hygiene rather than adding more platform features.

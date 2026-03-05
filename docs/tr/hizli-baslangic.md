@@ -1,6 +1,6 @@
 # Hizli Baslangic
 
-## 1. Ilk yerel calistirma
+## 1. Yerel stack'i kaldir
 
 ```bash
 ./scripts/dev-doctor.sh
@@ -8,45 +8,61 @@
 ./scripts/dev-up.sh standard
 ```
 
-Varsayilan local portlar doluysa `.env.docker.local` icinde `FRONTEND_HOST_PORT`, `API_GATEWAY_HOST_PORT` ve `LOGGER_HOST_PORT` degerlerini guncelleyin veya bu degiskenleri export edip stack'i yeniden baslatin. Ornek: `FRONTEND_HOST_PORT=14321 API_GATEWAY_HOST_PORT=18080 LOGGER_HOST_PORT=18090 ./scripts/dev-up.sh standard security`. Local Docker yayinlari varsayilan olarak `DOCKER_HOST_BIND_ADDRESS=127.0.0.1` ile host-local tutulur.
+Eger `dev-doctor` WSL icinde `docker compose unavailable` diyorsa Docker Desktop WSL integration'i acin veya su sekilde tekrar deneyin:
 
-## 2. Stack'i ac
+```bash
+DOCKER_BIN="/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe" ./scripts/dev-doctor.sh
+DOCKER_BIN="/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe" ./scripts/dev-up.sh standard
+```
 
-- Frontend: `http://127.0.0.1:<FRONTEND_HOST_PORT>/` (varsayilan: `http://127.0.0.1:4321/`)
-- Frontend test sayfasi: `http://127.0.0.1:<FRONTEND_HOST_PORT>/test` (varsayilan: `http://127.0.0.1:4321/test`)
-- Turkce ana sayfa: `http://127.0.0.1:<FRONTEND_HOST_PORT>/tr`
-- Turkce test sayfasi: `http://127.0.0.1:<FRONTEND_HOST_PORT>/tr/test`
-- API gateway: `http://127.0.0.1:<API_GATEWAY_HOST_PORT>` (varsayilan: `http://127.0.0.1:8080`)
-- Logger metrics: `http://127.0.0.1:<LOGGER_HOST_PORT>/metrics` (varsayilan: `http://127.0.0.1:8090/metrics`)
+## 2. Yerel saglik kontratini anla
 
-## 3. Locale ve theme dogrulamasi
+- `GET /health/live` sadece gateway prosesinin ayakta oldugunu soyler
+- `GET /health/ready` dependency-backed stack'in kullanilabilir oldugunu soyler
+- Frontend tarafindaki `GET /healthz` hafif shell health endpoint'idir
+- `dev-up` artik basari demeden once readiness, logger erisimi ve bir authenticated admin endpoint'i dogrular
 
-- `/` ve `/test` sayfalarindaki sag ust toolbar'i kullan
-- `EN` ve `TR` arasinda gecis yap
-- `Light` ve `Dark` arasinda gecis yap
-- dil gecisinin `/` ile `/tr` veya `/test` ile `/tr/test` arasinda navigation yaptigini dogrula
-- Sayfayi yenileyip mevcut URL'nin locale'i korudugunu ve secilen theme'in kalici oldugunu kontrol et
-- Document icindeki `html[lang]` ve `html[data-theme]` degerlerinin secime gore degistigini kontrol et
+Varsayilan adresler:
+- Frontend: `http://127.0.0.1:4321/`
+- Frontend health: `http://127.0.0.1:4321/healthz`
+- API live: `http://127.0.0.1:8080/health/live`
+- API ready: `http://127.0.0.1:8080/health/ready`
+- Logger metrics: `http://127.0.0.1:8090/metrics`
 
-## 4. Admin girisinden sonra ne denenmeli
+## 3. Ilk tarayici smoke dogrulamasi
 
-- runtime config'i incele
-- runtime metrics'i incele
-- runtime report indir
-- incident report indir
-- son incident event'leri incele
+- `http://127.0.0.1:4321/` adresini acin
+- `admin` kullanicisi ile giris yapin
+- Sifre olarak `./scripts/bootstrap.sh` cikisindaki veya `.env.docker.local` icindeki `BOOTSTRAP_ADMIN_PASSWORD` degerini kullanin
+- Runtime ozeti, trace lookup paneli ve request log listesi yukleniyorsa ilk dogrulama tamamdir
+
+Gercek stack browser smoke:
+
+```bash
+cd frontend
+../.toolchain/bun/bin/bun run e2e:live
+```
+
+Mock-backed hizli UI regresyonu:
+
+```bash
+cd frontend
+../.toolchain/bun/bin/bun run e2e
+```
+
+## 4. Credential drift durumunda yerel reset
+
+Persist edilmis Postgres veya Mongo volume'leri yeni credential'lari kabul etmiyorsa:
+
+```bash
+./scripts/dev-down.sh standard --volumes
+./scripts/bootstrap.sh standard --force
+./scripts/dev-up.sh standard
+```
 
 ## 5. Sonraki dokumanlar
 
-- [gelistirme-rehberi.md](/mnt/d/w/AppFoundryLab/docs/tr/gelistirme-rehberi.md)
-- [operasyonlar.md](/mnt/d/w/AppFoundryLab/docs/tr/operasyonlar.md)
-- [incident-yonetimi.md](/mnt/d/w/AppFoundryLab/docs/tr/incident-yonetimi.md)
-- [deployment.md](/mnt/d/w/AppFoundryLab/docs/tr/deployment.md)
-
-## 6. Tek sunucu deployment paketini localde denemek istersen
-
-```bash
-cp .env.single-host.example .env.single-host
-./scripts/deploy-single-host.sh up ./.env.single-host
-./scripts/archive-runtime-report.sh http://127.0.0.1:<API_GATEWAY_HOST_PORT> admin guclu_sifre
-```
+- [Gelistirme Rehberi](/mnt/d/w/AppFoundryLab/docs/tr/gelistirme-rehberi.md)
+- [Operasyonlar](/mnt/d/w/AppFoundryLab/docs/tr/operasyonlar.md)
+- [Test ve Kalite](/mnt/d/w/AppFoundryLab/docs/tr/test-ve-kalite.md)
+- [Proje Analizi](/mnt/d/w/AppFoundryLab/docs/tr/proje-analizi.md)

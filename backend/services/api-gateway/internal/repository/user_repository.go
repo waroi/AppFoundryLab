@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	"github.com/example/appfoundrylab/backend/services/api-gateway/internal/models"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,8 +16,19 @@ type postgresUserRepository struct {
 	pool *pgxpool.Pool
 }
 
+type unavailableUserRepository struct{}
+
+var errUserRepositoryUnavailable = errors.New("user repository unavailable")
+
 func NewUserRepository(pool *pgxpool.Pool) UserRepository {
+	if pool == nil {
+		return unavailableUserRepository{}
+	}
 	return &postgresUserRepository{pool: pool}
+}
+
+func (unavailableUserRepository) List(context.Context, int) ([]models.User, error) {
+	return nil, errUserRepositoryUnavailable
 }
 
 func (r *postgresUserRepository) List(ctx context.Context, limit int) ([]models.User, error) {

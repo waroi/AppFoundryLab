@@ -1,29 +1,19 @@
 # AppFoundryLab
 
-AppFoundryLab is a production-shaped polyglot full-stack starter.
+AppFoundryLab, production-shaped bir polyglot full-stack starter'dir.
+Amaci yeni bir gelistiricinin stack'i yerelde kaldirmasi, tarayicidan dogrulamasi ve extension noktalarini butun operator runbook'larini okumadan gorebilmesidir.
 
-It combines application code and operational workflows in one repository so teams can:
-- run everything locally,
-- rehearse deployment and recovery flows,
-- evolve the system with clear architecture and operations boundaries.
-
-## Stack Summary
+## Stack
 
 - Frontend: Astro + Svelte (`frontend/`)
 - API Gateway: Go (`backend/services/api-gateway`)
-- Worker: Rust gRPC (`backend/core/calculator`)
 - Logger Service: Go (`backend/services/logger`)
+- Worker: Rust gRPC (`backend/core/calculator`)
 - Data: PostgreSQL, Redis, MongoDB
 - Orchestration: Docker Compose
-- CI/CD and Operations: GitHub Actions + `scripts/`
+- Ops ve governance: `scripts/`, GitHub Actions, `docs/`
 
-## Quick Start (Local)
-
-Prerequisites:
-- Docker / Docker Desktop
-- Bash shell
-
-Run:
+## Quick Start
 
 ```bash
 ./scripts/dev-doctor.sh
@@ -31,100 +21,75 @@ Run:
 ./scripts/dev-up.sh standard
 ```
 
-Default local URLs:
+Varsayilan yerel adresler:
 - Frontend: `http://127.0.0.1:4321/`
-- Frontend test page: `http://127.0.0.1:4321/test`
-- API Gateway: `http://127.0.0.1:8080`
+- Frontend health: `http://127.0.0.1:4321/healthz`
+- API live: `http://127.0.0.1:8080/health/live`
+- API ready: `http://127.0.0.1:8080/health/ready`
 - Logger metrics: `http://127.0.0.1:8090/metrics`
 
-Stop services:
+`dev-doctor` WSL icinde `docker compose unavailable` diyorsa Docker Desktop WSL integration'i acin veya `DOCKER_BIN="/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe"` ile tekrar deneyin.
+
+## First Browser Smoke
+
+1. `http://127.0.0.1:4321/` adresini acin.
+2. `admin` kullanicisini ve `./scripts/bootstrap.sh` cikisindaki veya `.env.docker.local` icindeki `BOOTSTRAP_ADMIN_PASSWORD` degerini kullanin.
+3. Giristen sonra `runtime-metrics-summary`, `trace-lookup-panel` ve request log satirlarinin yüklendigini dogrulayin.
+
+Gercek stack browser smoke:
 
 ```bash
-./scripts/dev-down.sh standard
+cd frontend
+../.toolchain/bun/bin/bun run e2e:live
 ```
 
-If ports are already in use, update `.env.docker.local` before `dev-up`.
+Mock-backed hizli UI regresyonu:
+
+```bash
+cd frontend
+../.toolchain/bun/bin/bun run e2e
+```
+
+## Validation Modes
+
+- Local bring-up truth: `./scripts/dev-up.sh standard`
+- Local teardown with reset: `./scripts/dev-down.sh standard --volumes`
+- Mock-backed UI regression: `cd frontend && ../.toolchain/bun/bin/bun run e2e`
+- Real stack browser smoke: `cd frontend && ../.toolchain/bun/bin/bun run e2e:live`
+- Script + policy gate: `./scripts/quality-gate.sh sandbox-safe`
+- Deeper repo gate: `./scripts/quality-gate.sh ci-full`
 
 ## Documentation Map
 
 English:
-- [Quick Start](docs/en/quick-start.md)
-- [Developer Guide](docs/en/developer-guide.md)
-- [Architecture](docs/en/architecture.md)
-- [Operations](docs/en/operations.md)
-- [Deployment](docs/en/deployment.md)
-- [Incident Response](docs/en/incident-response.md)
-- [Testing and Quality](docs/en/testing-and-quality.md)
-- [Project Analysis](docs/en/project-analysis.md)
+- [Quick Start](/mnt/d/w/AppFoundryLab/docs/en/quick-start.md)
+- [Developer Guide](/mnt/d/w/AppFoundryLab/docs/en/developer-guide.md)
+- [Architecture](/mnt/d/w/AppFoundryLab/docs/en/architecture.md)
+- [Operations](/mnt/d/w/AppFoundryLab/docs/en/operations.md)
+- [Deployment](/mnt/d/w/AppFoundryLab/docs/en/deployment.md)
+- [Incident Response](/mnt/d/w/AppFoundryLab/docs/en/incident-response.md)
+- [Testing and Quality](/mnt/d/w/AppFoundryLab/docs/en/testing-and-quality.md)
+- [Project Analysis](/mnt/d/w/AppFoundryLab/docs/en/project-analysis.md)
 
 Turkish:
-- [Hizli Baslangic](docs/tr/hizli-baslangic.md)
-- [Gelistirme Rehberi](docs/tr/gelistirme-rehberi.md)
-- [Mimari](docs/tr/mimari.md)
-- [Operasyonlar](docs/tr/operasyonlar.md)
-- [Deployment](docs/tr/deployment.md)
-- [Incident Yonetimi](docs/tr/incident-yonetimi.md)
-- [Test ve Kalite](docs/tr/test-ve-kalite.md)
-- [Proje Analizi](docs/tr/proje-analizi.md)
+- [Hizli Baslangic](/mnt/d/w/AppFoundryLab/docs/tr/hizli-baslangic.md)
+- [Gelistirme Rehberi](/mnt/d/w/AppFoundryLab/docs/tr/gelistirme-rehberi.md)
+- [Mimari](/mnt/d/w/AppFoundryLab/docs/tr/mimari.md)
+- [Operasyonlar](/mnt/d/w/AppFoundryLab/docs/tr/operasyonlar.md)
+- [Deployment](/mnt/d/w/AppFoundryLab/docs/tr/deployment.md)
+- [Incident Yonetimi](/mnt/d/w/AppFoundryLab/docs/tr/incident-yonetimi.md)
+- [Test ve Kalite](/mnt/d/w/AppFoundryLab/docs/tr/test-ve-kalite.md)
+- [Proje Analizi](/mnt/d/w/AppFoundryLab/docs/tr/proje-analizi.md)
 
-Core runbooks and governance:
-- [Teknik Analiz](docs/appfoundrylab-teknik-analiz.md)
-- [Deployment Strategy](docs/deployment-strategy.md)
-- [Runtime Incident Response](docs/runtime-incident-response.md)
-- [Operator Observability Runbook](docs/operator-observability-runbook.md)
-- [Release Policy](docs/release-policy.md)
-- [Gelistirme Plani](docs/gelistirmePlanı.md)
-- [Progress Plan](PROGRESS.md)
-
-## Common Workflows
-
-Quality and checks:
-
-```bash
-./scripts/quality-gate.sh sandbox-safe
-./scripts/quality-gate.sh host-strict
-./scripts/check-doc-drift.sh
-```
-
-Frontend browser tests:
-
-```bash
-cd frontend
-bun run e2e:bootstrap
-bunx playwright install chromium
-bun run e2e
-```
-
-Single-host deployment and lifecycle:
-- Deploy and operations: [`scripts/deploy-single-host.sh`](scripts/deploy-single-host.sh)
-- Rollback: [`scripts/rollback-single-host.sh`](scripts/rollback-single-host.sh)
-- Backup and restore drill: [`scripts/backup-single-host.sh`](scripts/backup-single-host.sh), [`scripts/restore-drill-single-host.sh`](scripts/restore-drill-single-host.sh)
-- Release catalog and evidence: [`scripts/release-catalog.sh`](scripts/release-catalog.sh), [`scripts/collect-release-evidence.sh`](scripts/collect-release-evidence.sh)
-
-Related workflows:
-- [CI Pipeline](.github/workflows/appfoundrylab-ci.yml)
-- [Staging Deploy](.github/workflows/deploy-single-host-staging.yml)
-- [Production Deploy](.github/workflows/deploy-single-host-production.yml)
-- [Release Evidence Harvest](.github/workflows/release-evidence-harvest.yml)
-
-## Repository Layout
-
-```text
-backend/        Go services, Rust worker, proto, infra
-frontend/       Astro + Svelte application
-scripts/        Local ops, CI helpers, release/backup tooling
-deploy/         Compose overlays, caddy and observability configs
-docs/           EN/TR documentation and runbooks
-multi_agent/    Orchestration rules and prompts
-```
+Core docs:
+- [Teknik Analiz](/mnt/d/w/AppFoundryLab/docs/appfoundrylab-teknik-analiz.md)
+- [Gelistirme Plani](/mnt/d/w/AppFoundryLab/docs/gelistirmePlanı.md)
+- [Progress](/mnt/d/w/AppFoundryLab/PROGRESS.md)
+- [Scripts Index](/mnt/d/w/AppFoundryLab/scripts/README.md)
 
 ## Notes
 
-- `.env` is ignored by git; use examples such as `.env.example` and `.env.docker.local`.
-- `.toolchain/` is local-only and intentionally ignored.
-- Local scripts auto-resolve Docker Desktop `docker.exe` on WSL when the default `docker` CLI points to an unusable Podman shim; set `DOCKER_BIN` explicitly only if you need a custom binary.
-- Make sure Docker Engine is running before `./scripts/dev-up.sh`; otherwise compose startup will fail immediately.
-- Use `bun run e2e` for browser tests on Windows, and keep `./scripts/run-playwright.sh` as the Linux shell wrapper.
-- Local release evidence rehearsal command: `./scripts/rehearse-release-evidence-local.sh ./.env.docker.local ./artifacts/local-release-evidence`.
-- `./scripts/dev-up.sh` now validates Postgres and Mongo credentials against persisted volumes before reporting stack readiness; use `SKIP_DATA_CREDENTIAL_CHECK=true` only for temporary troubleshooting.
-- `./scripts/check-doc-drift.sh` supports `DOC_DRIFT_CHANGED_FILES` fallback when `git` is unavailable in strict shell environments.
+- `PROGRESS.md` repo backlog'unun tek kanonik kaynagidir.
+- `docs/gelistirmePlanı.md` stratejik faz sirasini tutar; canli backlog tutmaz.
+- Advanced ops yuzeyi (release evidence, attestation, observability overlays, single-host deploy) starter'in ustune gelen opsiyonel katmandir.
+- `dev-up` artik yalnizca process liveness degil; readiness, logger erisimi ve bir authenticated admin smoke ile basari raporlar.

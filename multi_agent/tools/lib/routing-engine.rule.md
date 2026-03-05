@@ -1,7 +1,7 @@
 # Routing Engine Rule
 
 Purpose:
-- Preserve deterministic prompt parsing, routing, and assignment behavior without scripts.
+- Preserve deterministic prompt parsing, routing, named squad activation, and assignment behavior without scripts.
 
 Inputs:
 - Prompt text.
@@ -25,71 +25,54 @@ Inputs:
 1. Iterate `routing.keyword_groups` in declaration order.
 2. For each keyword:
    - if string: `term=<keyword>`, `match_mode=word`, `weight=1.0`
-   - if object: read `term` or `keyword`, optional `match_mode`/`mode`, optional `weight`
+   - if object: read `term`, optional `match_mode`, optional `weight`
 3. Match behavior:
-   - `word`: boundary-aware unicode token matching.
-   - `substring`: case-insensitive substring.
-4. For each match:
-   - append term to matched list
-   - add keyword weight to raw score
-5. Group score:
-   - `weighted_score = raw_score * group.weight` (default group weight `1.0`)
-6. Keep group only when at least one keyword matched.
-7. Sort hits:
-   1. score descending
-   2. match_count descending
-   3. group order ascending
+   - `word`: boundary-aware token matching
+   - `substring`: case-insensitive substring
+4. Group score:
+   - `weighted_score = sum(matched keyword weights) * group.weight`
+5. Sort hits by score descending, match_count descending, then group order ascending.
 
-## C. Allocate Roles
-1. Initialize empty assignments and role occurrence map.
+## C. Allocate Agents
+1. Initialize empty assignments.
 2. If `agent_count == 1`:
-   - assign `team_lead_architect_combined` as slot 1, source `single_mode`.
-3. If `agent_count >= 2`:
-   - assign `allocation.primary_roles` in order, source `primary`.
-   - insert priority roles from sorted routing hits in order, deduped by role key, source `routing`.
-   - fill with `allocation.fallback_cycle`, source `fallback`.
-   - if blocked by max instances, continue with `allocation.overflow_cycle`, source `overflow`.
-   - if still blocked, disable role limits and continue filling cycles.
-4. Instance naming:
-   - first occurrence: `role_key`
-   - second+ occurrence: `role_key_<n>`
-5. Slot numbering starts at 1 and increments by append order.
+   - assign `team_lead_architect_combined`, source `single_mode`
+3. If `agent_count == defaults.core_squad_agent_count`:
+   - assign `allocation.named_squads.enterprise_x10_core.agents`, source `named_squad`
+4. If `agent_count == defaults.full_stack_squad_agent_count`:
+   - assign `allocation.named_squads.enterprise_x12_full_stack.agents`, source `named_squad`
+5. If `2 <= agent_count < defaults.core_squad_agent_count`:
+   - assign `allocation.primary_agents`, source `primary`
+   - insert priority agents from ranked routing hits, source `routing`
+   - dedupe while preserving first appearance order
+   - fill with `allocation.fallback_cycle`, source `fallback`
+6. If `agent_count == 11`:
+   - seed `enterprise_x10_core`
+   - add the top-ranked missing agent from `allocation.expansion_cycle`, source `expansion`
+7. If `agent_count == 13`:
+   - seed `enterprise_x12_full_stack`
+   - add the highest-ranked missing optional specialist matched by `allocation.optional_specialists.routing_map`
+   - if none match, use the first missing agent in `allocation.optional_specialists.fallback_cycle`
+8. If `agent_count == 14`:
+   - seed `enterprise_x12_full_stack`
+   - add all missing agents from `allocation.optional_specialists.fallback_cycle` in order
+9. Final assignments must be unique.
 
-## D. Role Limits
-- Read `allocation.max_instances_per_role`.
-- If role-specific limit absent, use `default`.
-- If limit <=0: unlimited.
+## D. Model Resolution
+- Resolve base model from `model_selection.default_agent_models`.
+- Apply conditional escalation per agent when prompt keywords match.
+- Record both `base_model` and `resolved_model` when they differ.
 
-## E. Dispatch Artifact Contract
+## E. Governance Resolution
+- Resolve `release_oriented` using `policies.governance.release_oriented_keywords`.
+- Resolve `data_sensitivity=restricted` when prompt text matches any `delegation.data_sensitivity.restricted_keywords`.
+- Otherwise resolve `data_sensitivity` to `delegation.data_sensitivity.default`.
+
+## F. Dispatch Artifact Contract
 Text mode must include:
 - Task
 - Agents
 - Routing summary
-- Assignment list with slot/source/model
-
-Json mode payload:
-```json
-{
-  "task": "string",
-  "agent_count": 4,
-  "routing_hits": ["planning_analysis"],
-  "routing_details": [
-    {
-      "name": "planning_analysis",
-      "match_count": 2,
-      "matched_keywords": ["analysis", "roadmap"],
-      "priority_roles": ["research_analyst", "qa_guardian"],
-      "score": 4.16
-    }
-  ],
-  "assignments": [
-    {
-      "slot": 1,
-      "role_key": "principal_architect",
-      "instance_name": "principal_architect",
-      "model": "gpt-5.3-codex",
-      "source": "primary"
-    }
-  ]
-}
-```
+- Assignment list with slot, source, pod, skill bundle, and resolved model
+- `release_oriented`
+- `data_sensitivity`

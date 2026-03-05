@@ -97,7 +97,7 @@ services:
     ports:
       - "${DOCKER_HOST_BIND_ADDRESS:-127.0.0.1}:${API_GATEWAY_HOST_PORT:-8080}:8080"
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/health/live >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/health/ready >/dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5

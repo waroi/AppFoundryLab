@@ -1,16 +1,13 @@
-# Token Optimization Guidelines
+# Token Optimization
 
-- Share only the minimum context each agent needs to be effective.
-- Prefer file paths and short excerpts over large dumps.
-- Use concise bullets and avoid restating the user prompt.
-- Deduplicate work: Team Lead assigns non-overlapping tasks.
-- Summaries should target 5 to 10 bullets unless more is essential.
-- Keep delegation prompts small: task, scoped context, constraints, output contract.
-- Enforce per-role output budgets (word/bullet caps) in generated briefs.
-- Use routing evidence to justify why a role is delegated; avoid unnecessary agents.
-- Keep handoff memos compact and avoid repeating the same point across sections.
-- Reuse generated artifacts under `multi_agent/runtime/` (`brief.md`, `summary.md`) instead of rebuilding context.
-- Check `## Telemetry` sections in brief/summary outputs and treat `status=over_budget` as a prompt to split scope.
-- Check `run.json -> telemetry.scorecard/trend` for run-level budget drift before increasing `xN`.
-- Prefer `multi_agent/tools/orchestrate-run.rule.md` for consistent scoped runs and cleaner token budgeting across iterations.
-- Use `multi_agent/tools/validate-setup.rule.md` after structural changes to catch token-cost regressions early.
+Purpose:
+- Keep quality high while avoiding unnecessary token spend.
+
+Rules:
+- Use compact briefs for `x8+`.
+- Use pod-level summaries for `x10+`; do not paste the same full context into every slot.
+- Load the smallest skill bundle that still covers the delegated lane.
+- Load `clean-code` only on technical lanes; do not pay that cost on pure product, UX, or delivery lanes.
+- If a slot would need more than 3 skills or more than the pod context limit, split the work.
+- Prefer `gpt-5.2-instant` for reading, summarizing, UX review, and documentation.
+- Escalate only the lane that becomes critical.

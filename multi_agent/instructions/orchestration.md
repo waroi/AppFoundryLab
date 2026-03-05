@@ -1,75 +1,73 @@
-# Orchestration Rules (Scriptless)
+# Orchestration Rules (Enterprise Scriptless)
 
 Goal:
-- Execute user tasks via a deterministic multi-agent workflow controlled by trailing `xN` / `XN`.
-- Preserve previous dispatch/brief/summary/conflict/telemetry behavior without executable scripts.
+- Execute user tasks via deterministic multi-agent workflow controlled by trailing `xN` / `XN`.
+- Keep the operating model scriptless while still enforcing release gates, safety, and token discipline.
 
 Canonical sources:
 - `multi_agent/config.md`
+- `multi_agent/instructions/agent-catalog.md`
+- `multi_agent/instructions/clean-code-standards.md`
+- `multi_agent/instructions/enterprise-squad.md`
+- `multi_agent/instructions/context-packing.md`
+- `multi_agent/instructions/project-context-discovery.md`
+- `multi_agent/instructions/review-chain.md`
+- `multi_agent/instructions/skill-loading.md`
+- `multi_agent/instructions/live-reporting.md`
+- `multi_agent/instructions/model-selection.md`
+- `multi_agent/instructions/continuous-improvement.md`
+- `multi_agent/instructions/runtime-governance.md`
 - `multi_agent/instructions/handoff-format.md`
 - `multi_agent/tools/*.rule.md`
 
 ## Core Flow
 1. Parse prompt envelope.
-2. Compute role assignments.
-3. Produce dispatch artifact.
-4. Produce brief artifact.
-5. Collect handoff memos.
-6. Produce summary artifact.
-7. Produce conflict artifact.
-8. Produce run metadata artifact.
-9. Validate the run against `multi_agent/tools/validate-setup.rule.md`.
-
-## Prompt Envelope Rules
-- Read trailing `xN` or `XN` from the end of prompt.
-- If suffix missing, use `defaults.agent_count`.
-- Normalize `<1` to `1`.
-- Cap by `defaults.max_agent_count`.
-- If task text becomes empty, use `Untitled task`.
-
-## Routing Rules
-- Evaluate routing groups in `multi_agent/config.md`.
-- Keyword matching is boundary-aware unless keyword explicitly sets substring mode.
-- Compute group score using configured weights.
-- Keep only groups with at least one matched keyword.
-- Sort by:
-  1. score (descending)
-  2. match_count (descending)
-  3. declaration order (ascending)
+2. Load required project context, including `AGENTS.md` when workspace operating rules matter.
+3. Compute routing hits.
+4. Select assignment strategy.
+5. Resolve `release_oriented` and `data_sensitivity` from `multi_agent/config.md`.
+6. Resolve model assignments and escalations.
+7. Update active plan.
+8. Produce dispatch artifact.
+9. Produce skill-aware brief artifact.
+10. Emit live status reporting.
+11. Collect handoff memos.
+12. Run review chain, blocker checks, and conflict detection.
+13. Produce summary, metrics, and session memory artifacts.
+14. Run final deep analysis, doc sync, metrics update, and score refresh.
+15. Validate the run with `multi_agent/tools/validate-setup.rule.md`.
 
 ## Assignment Rules
 - If `N == 1`: assign `team_lead_architect_combined`.
-- If `N >= 2`: assign primary roles first (`principal_architect`, `team_lead`).
-- Add routing-priority roles in routing rank order, deduplicated against already assigned role keys.
-- Fill remaining slots from `allocation.fallback_cycle`.
-- If role caps block completion, continue with `allocation.overflow_cycle`.
-- If still blocked, lift role caps and continue cycle fill.
-- Duplicate role instance naming:
-  - first instance: `role_key`
-  - second+ instance: `role_key_2`, `role_key_3`, ...
-
-## Delegation Rules
-- Team Lead delegates scoped, non-overlapping tasks.
-- Each delegated slot must include:
-  - mission
-  - scoped context
-  - output budget
-  - quality gate
-  - overlap guard (for duplicate instances)
-- For high `xN` (`>= 8`), use compact brief mode.
-
-## Safety and Telemetry Rules
-- Apply redaction policy from `multi_agent/tools/lib/safety.rule.md`.
-- Compute telemetry from `multi_agent/tools/lib/telemetry.rule.md`.
-- Include budget status (`ok`, `over_budget`, `no_budget`) for task/brief/summary.
-
-## Output Modes
-- Every operational artifact supports two representations:
-  - `text`: human-readable markdown sections
-  - `json`: fenced `json` block embedded in markdown
-- JSON field contracts are defined in each `*.rule.md` file under `multi_agent/tools/`.
+- If `N == 10`: assign the exact `enterprise_x10_core` squad.
+- If `N == 12`: assign the exact `enterprise_x12_full_stack` squad.
+- If `2 <= N < 10`:
+  - assign `allocation.primary_agents`
+  - insert routing-priority agents in routing rank order
+  - dedupe while preserving first appearance order
+  - fill remaining slots from `allocation.fallback_cycle`
+- If `N == 11`:
+  - seed `enterprise_x10_core`
+  - add the top-ranked agent from `allocation.expansion_cycle` that matches the prompt and is not already present
+- If `N == 13`:
+  - seed `enterprise_x12_full_stack`
+  - add the optional specialist resolved from `allocation.optional_specialists.routing_map`
+  - if no optional specialist matches, add the first missing specialist from `allocation.optional_specialists.fallback_cycle`
+- If `N == 14`:
+  - seed `enterprise_x12_full_stack`
+  - add both optional specialists from `allocation.optional_specialists.fallback_cycle`
 
 ## Review Loop
-- If memos conflict, Team Lead requests revision or resolves with explicit rationale.
-- QA Guardian and Security Reviewer findings are blocking for release-oriented tasks.
-- If requirements are ambiguous, ask one concise user question.
+- `release_oriented` detection must use `policies.governance.release_oriented_keywords` from `multi_agent/config.md`.
+- Guard-lane findings from `policies.governance.blocker_authorities` are blocking for release-oriented tasks.
+- Clean-code violations are blocking for coding and code-review lanes.
+- Engineering outputs are reviewed by `team_lead` and, when architecture changes, by `principal_architect`.
+- Documentation changes are reviewed by `team_lead` when `documentation_analyst` is active.
+- Maximum 2 revision rounds.
+- If an unresolved guard blocker remains after 2 rounds, the final run state is `blocked`.
+
+## Reporting Loop
+- Team Lead must expose `timestamp`, `slot`, `agent`, `mission`, `skill bundle`, `state`, `blockers`, and `success level` during execution.
+- Live reporting must follow the canonical table format and cadence from `multi_agent/instructions/live-reporting.md`.
+- Final response must include an agent scoreboard, blocker resolution section, and final run state.
+- Every development cycle must end with deep analysis, documentation updates, metrics update, and score refresh unless the user explicitly opts out.

@@ -1,57 +1,44 @@
 # Dispatch Rule
 
 Purpose:
-- Produce deterministic assignment and routing evidence for a task prompt.
+- Produce deterministic assignment, model routing, skill bundle, routing evidence, and governance classification for a task prompt.
 
 Inputs:
-- `prompt` (string; may contain trailing `xN`/`XN`).
-- `format` (`text` or `json`).
+- `prompt`
+- `format` (`text` or `json`)
 
 Dependencies:
 - `multi_agent/config.md`
+- `multi_agent/agents/*.agent.md`
 - `multi_agent/tools/lib/routing-engine.rule.md`
+- `multi_agent/instructions/model-selection.md`
+- `multi_agent/instructions/skill-loading.md`
 
 ## Procedure
 1. Parse prompt envelope.
 2. Compute routing hits and ranked routing details.
-3. Compute role assignments.
-4. Emit dispatch artifact in selected format.
+3. Compute agent assignments with dedupe preserved in first-hit order.
+4. Resolve optional specialist behavior for `x13-x14` using `allocation.optional_specialists`.
+5. Resolve model escalations where applicable.
+6. Classify `release_oriented` and `data_sensitivity` signals.
+7. Attach default skill bundles from the agent catalog.
+8. Emit dispatch artifact in selected format.
 
-## Text Output Contract
-- `Task: <task>`
-- `Agents: <count>`
-- `Routing: <group1, group2 ...>` or `Routing: default`
-- `Assignments:` numbered rows `<slot>. <instance_name> [<source>] (<model>)`
-
-## Json Output Contract
-Use this exact schema:
-```json
-{
-  "task": "analysis roadmap",
-  "agent_count": 4,
-  "routing_hits": ["planning_analysis"],
-  "routing_details": [
-    {
-      "name": "planning_analysis",
-      "match_count": 2,
-      "matched_keywords": ["analysis", "roadmap"],
-      "priority_roles": ["research_analyst", "qa_guardian"],
-      "score": 4.16
-    }
-  ],
-  "assignments": [
-    {
-      "slot": 1,
-      "role_key": "principal_architect",
-      "instance_name": "principal_architect",
-      "model": "gpt-5.3-codex",
-      "source": "primary"
-    }
-  ]
-}
-```
+## Artifact Requirements
+- Include assignment source per slot.
+- Include `release_oriented` classification.
+- Include `data_sensitivity` classification.
+- Include optional specialist selection reason when `x13-x14` is used.
+- Include resolved skill bundle per slot.
+- Include dedupe-safe unique slot list.
 
 ## Acceptance Checks
-- `analysis roadmap x4` => `agent_count=4`, routing includes `planning_analysis`.
-- `Refactor API X5` => `agent_count=5`.
-- `Create debug dashboard x3` must not route `quality` via `bug`.
+- `deep analysis roadmap x4` => routing includes `planning_analysis`.
+- `Enterprise modernization x10` => 10 unique assignments.
+- `Enterprise modernization x12` => includes `frontend_engineer` and `backend_engineer`.
+- `API contract migration x13` => `api_integration_engineer` is added as the optional specialist.
+- `Operator handbook refresh x13` => `documentation_analyst` is added as the optional specialist.
+- `API contract migration x14` => includes `api_integration_engineer` and `documentation_analyst`.
+- Coding and code-review assignments include `clean-code` in the resolved skill bundle.
+- `Production rollback review x12` => `release_oriented=true`.
+- `Customer data contract review x12` => `data_sensitivity=restricted`.

@@ -11,10 +11,19 @@ For any text:
 
 ## Budget Resolution
 Budget keys from `multi_agent/config.md`:
-- `task_max_estimated_tokens` (default `450`)
-- `brief_max_estimated_tokens` (default `2600`)
-- `memo_max_estimated_tokens` (default `700`)
-- `summary_max_estimated_tokens` (default `2600`)
+- `task_max_estimated_tokens` (default `500`)
+- `brief_max_estimated_tokens` (default `3600`)
+- `memo_max_estimated_tokens` (default `750`)
+- `summary_max_estimated_tokens` (default `2800`)
+- Budget profiles:
+  - `critical` (default `340`)
+  - `execution` (default `280`)
+  - `support` (default `180`)
+  - `documentation` (default `160`)
+
+Rule:
+- `multi_agent/config.md` is the canonical source for numeric telemetry values.
+- Local fallback numbers must stay aligned with the current config.
 
 ## Budget Status
 - `no_budget` when budget <= 0
@@ -23,6 +32,7 @@ Budget keys from `multi_agent/config.md`:
 
 ## Reporting
 - Brief and summary must include `## Telemetry`.
+- Briefs should expose role or pod budget-profile mapping when compact mode hides verbose detail.
 - Run metadata must include:
   - `scorecard.task_estimated_tokens`
   - `scorecard.brief_estimated_tokens`
