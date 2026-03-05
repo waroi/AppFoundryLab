@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,6 +10,30 @@ import (
 
 	"github.com/example/appfoundrylab/backend/services/api-gateway/internal/worker"
 )
+
+func TestLiveHandler(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/health/live", nil)
+	res := httptest.NewRecorder()
+
+	LiveHandler(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", res.Code)
+	}
+
+	var payload map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
+		t.Fatalf("failed to decode response body: %v", err)
+	}
+
+	if payload["status"] != "ok" {
+		t.Errorf("expected status 'ok', got %v", payload["status"])
+	}
+
+	if payload["service"] != "api-gateway" {
+		t.Errorf("expected service 'api-gateway', got %v", payload["service"])
+	}
+}
 
 func TestReadyEndpointUsesFreshCache(t *testing.T) {
 	now := time.Unix(100, 0)
