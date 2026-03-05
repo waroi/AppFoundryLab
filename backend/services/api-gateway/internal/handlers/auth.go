@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/example/appfoundrylab/backend/pkg/env"
@@ -68,18 +67,18 @@ func resolveRole(username, password string) (string, bool) {
 	}
 
 	adminUser := env.GetWithDefault("BOOTSTRAP_ADMIN_USER", runtimecfg.DefaultAdminUser)
-	adminPass := os.Getenv("BOOTSTRAP_ADMIN_PASSWORD")
+	adminPass := env.GetWithDefault("BOOTSTRAP_ADMIN_PASSWORD", runtimecfg.DefaultAdminPassword)
 	regularUser := env.GetWithDefault("BOOTSTRAP_USER", runtimecfg.DefaultRegularUser)
-	regularPass := os.Getenv("BOOTSTRAP_USER_PASSWORD")
+	regularPass := env.GetWithDefault("BOOTSTRAP_USER_PASSWORD", runtimecfg.DefaultRegularPass)
 
 	if mode == "generated" && runtimecfg.BootstrapDefaultsStillActive(adminUser, adminPass, regularUser, regularPass) {
 		return "", false
 	}
 
 	switch {
-	case adminPass != "" && username == adminUser && password == adminPass:
+	case username == adminUser && password == adminPass:
 		return "admin", true
-	case regularPass != "" && username == regularUser && password == regularPass:
+	case username == regularUser && password == regularPass:
 		return "user", true
 	default:
 		return "", false
