@@ -6,6 +6,7 @@ multi_agent/runtime/**
 
 # PPB workspace artifacts
 .env
+.toolchain/
 **/.DS_Store
 **/node_modules/
 **/dist/
