@@ -3,9 +3,15 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/example/appfoundrylab/backend/services/api-gateway/internal/worker"
 	"github.com/example/appfoundrylab/backend/services/api-gateway/pkg/httpx"
+)
+
+const (
+	fibonacciMaxN   = 1000
+	hashMaxInputLen = 4096
 )
 
 type fibonacciRequest struct {
@@ -24,6 +30,23 @@ func NewComputeHandler(workerClient *worker.Client) *ComputeHandler {
 	return &ComputeHandler{workerClient: workerClient}
 }
 
+func validateFibonacciRequest(n uint32) (string, string, bool) {
+	if n > fibonacciMaxN {
+		return "n_out_of_range", "n must be between 0 and 1000", false
+	}
+	return "", "", true
+}
+
+func validateHashRequest(input string) (string, string, bool) {
+	if strings.TrimSpace(input) == "" {
+		return "input_required", "input must not be empty", false
+	}
+	if len(input) > hashMaxInputLen {
+		return "input_too_long", "input must not exceed 4096 characters", false
+	}
+	return "", "", true
+}
+
 func (h *ComputeHandler) Fibonacci(w http.ResponseWriter, r *http.Request) {
 	if h.workerClient == nil {
 		httpx.WriteError(w, r, http.StatusServiceUnavailable, "worker_unavailable", "worker service is unavailable", nil)
@@ -33,6 +56,11 @@ func (h *ComputeHandler) Fibonacci(w http.ResponseWriter, r *http.Request) {
 	var payload fibonacciRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		httpx.WriteError(w, r, http.StatusBadRequest, "invalid_json", "invalid request body", nil)
+		return
+	}
+
+	if code, msg, ok := validateFibonacciRequest(payload.N); !ok {
+		httpx.WriteError(w, r, http.StatusBadRequest, code, msg, nil)
 		return
 	}
 
@@ -57,6 +85,11 @@ func (h *ComputeHandler) Hash(w http.ResponseWriter, r *http.Request) {
 	var payload hashRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		httpx.WriteError(w, r, http.StatusBadRequest, "invalid_json", "invalid request body", nil)
+		return
+	}
+
+	if code, msg, ok := validateHashRequest(payload.Input); !ok {
+		httpx.WriteError(w, r, http.StatusBadRequest, code, msg, nil)
 		return
 	}
 
