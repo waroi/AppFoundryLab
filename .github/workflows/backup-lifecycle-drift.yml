@@ -25,7 +25,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || vars.BACKUP_S3_BUCKET != ''
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Resolve lifecycle drift inputs
         env:

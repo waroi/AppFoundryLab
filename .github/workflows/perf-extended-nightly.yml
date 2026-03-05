@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Generate dev certs
         run: ./scripts/certs-dev.sh
@@ -93,7 +93,7 @@ jobs:
         run: cat ./artifacts/quality/perf-extended-quality-report.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload extended perf artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: perf-extended-nightly
           path: |
