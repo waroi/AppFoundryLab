@@ -247,20 +247,28 @@ func buildIncidentEventID(code, eventType, now string) string {
 }
 
 func (m *Monitor) dispatchEvent(event handlers.RuntimeIncidentEventRecord) {
+	if len(m.sink) == 0 {
+		return
+	}
+
+	payload, err := json.Marshal(event)
+	if err != nil {
+		m.dispatchFailures.Add(1)
+		m.lastDispatchError = err.Error()
+		return
+	}
+
 	if sinkIncludes(m.sink, "logger") {
-		if err := m.dispatchToLogger(event); err != nil {
+		if err := m.dispatchToLogger(payload); err != nil {
 			m.dispatchFailures.Add(1)
 			m.lastDispatchError = err.Error()
 		}
 	}
 	if sinkIncludes(m.sink, "stdout") {
-		payload, err := json.Marshal(event)
-		if err == nil {
-			log.Printf("incident_event %s", payload)
-		}
+		log.Printf("incident_event %s", payload)
 	}
 	if sinkIncludes(m.sink, "webhook") {
-		if err := m.dispatchToWebhook(event); err != nil {
+		if err := m.dispatchToWebhook(payload); err != nil {
 			m.dispatchFailures.Add(1)
 			m.lastDispatchError = err.Error()
 		}
@@ -269,14 +277,10 @@ func (m *Monitor) dispatchEvent(event handlers.RuntimeIncidentEventRecord) {
 	m.publishStats()
 }
 
-func (m *Monitor) dispatchToLogger(event handlers.RuntimeIncidentEventRecord) error {
+func (m *Monitor) dispatchToLogger(body []byte) error {
 	baseURL := deriveLoggerBaseURL(m.loggerEndpoint)
 	if baseURL == "" {
 		return nil
-	}
-	body, err := json.Marshal(event)
-	if err != nil {
-		return err
 	}
 	timestamp := time.Now().UTC().Format(time.RFC3339Nano)
 	req, err := http.NewRequest(http.MethodPost, baseURL+"/incident-events", bytes.NewReader(body))
@@ -299,7 +303,7 @@ func (m *Monitor) dispatchToLogger(event handlers.RuntimeIncidentEventRecord) er
 	return nil
 }
 
-func (m *Monitor) dispatchToWebhook(event handlers.RuntimeIncidentEventRecord) error {
+func (m *Monitor) dispatchToWebhook(body []byte) error {
 	if strings.TrimSpace(m.webhookURL) == "" {
 		return nil
 	}
@@ -311,10 +315,6 @@ func (m *Monitor) dispatchToWebhook(event handlers.RuntimeIncidentEventRecord) e
 		if _, ok := m.webhookAllowedHosts[strings.ToLower(parsed.Hostname())]; !ok {
 			return errors.New("incident webhook host is not allowed")
 		}
-	}
-	body, err := json.Marshal(event)
-	if err != nil {
-		return err
 	}
 	req, err := http.NewRequest(http.MethodPost, m.webhookURL, bytes.NewReader(body))
 	if err != nil {
