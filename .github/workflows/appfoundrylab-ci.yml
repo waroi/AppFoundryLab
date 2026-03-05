@@ -75,7 +75,7 @@ jobs:
         run: cat ./artifacts/release-gate/release-gate-fast-summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload release gate artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-gate-fast
           path: |
@@ -294,7 +294,7 @@ jobs:
         run: ./scripts/gen-sbom.sh ./artifacts/sbom
 
       - name: Upload SBOM artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom
           path: |
@@ -360,7 +360,7 @@ jobs:
         run: cat ./artifacts/perf/k6-summary-diff.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload perf artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: perf-k6
           path: |
@@ -403,7 +403,7 @@ jobs:
         run: cat "./artifacts/capacity/profile-capacity-${{ matrix.profile }}.md" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload profile capacity artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: profile-capacity-${{ matrix.profile }}
           path: artifacts/capacity/profile-capacity-${{ matrix.profile }}.md
@@ -449,7 +449,7 @@ jobs:
         run: cat ./artifacts/quality/boilerplate-quality-report.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload quality report artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: boilerplate-quality-report
           path: |
