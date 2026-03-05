@@ -1,0 +1,304 @@
+name: Deploy Single Host Staging
+
+on:
+  workflow_call:
+    inputs:
+      git_ref:
+        required: false
+        type: string
+      deploy_mode:
+        required: false
+        default: image
+        type: string
+      release_manifest:
+        required: false
+        type: string
+      promotion_run_id:
+        required: false
+        type: string
+      release_id:
+        required: false
+        type: string
+      release_source_sha:
+        required: false
+        type: string
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: Git ref to deploy in build mode.
+        required: false
+        type: string
+      deploy_mode:
+        description: Deploy from source checkout or pinned GHCR images.
+        required: false
+        default: image
+        type: choice
+        options:
+          - build
+          - image
+      release_manifest:
+        description: Optional multi-line env manifest for image mode.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: deploy-single-host-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy staging over SSH
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve deploy configuration
+        env:
+          INPUT_GIT_REF: ${{ inputs.git_ref || github.event.inputs.git_ref }}
+          INPUT_DEPLOY_MODE: ${{ inputs.deploy_mode || github.event.inputs.deploy_mode }}
+          INPUT_RELEASE_MANIFEST: ${{ inputs.release_manifest || github.event.inputs.release_manifest }}
+          INPUT_PROMOTION_RUN_ID: ${{ inputs.promotion_run_id }}
+          INPUT_RELEASE_ID: ${{ inputs.release_id }}
+          INPUT_RELEASE_SOURCE_SHA: ${{ inputs.release_source_sha }}
+          DEFAULT_DEPLOY_MODE: ${{ vars.STAGING_DEPLOY_MODE || 'image' }}
+          DEFAULT_RELEASE_MANIFEST: ${{ vars.STAGING_RELEASE_MANIFEST }}
+        run: |
+          set -euo pipefail
+          echo "DEPLOY_REF=${INPUT_GIT_REF:-$GITHUB_SHA}" >> "$GITHUB_ENV"
+          echo "DEPLOY_MODE=${INPUT_DEPLOY_MODE:-$DEFAULT_DEPLOY_MODE}" >> "$GITHUB_ENV"
+          printf 'RELEASE_MANIFEST<<EOF\n%s\nEOF\n' "${INPUT_RELEASE_MANIFEST:-$DEFAULT_RELEASE_MANIFEST}" >> "$GITHUB_ENV"
+          echo "DEPLOY_PROMOTION_RUN_ID=${INPUT_PROMOTION_RUN_ID:-$GITHUB_RUN_ID}" >> "$GITHUB_ENV"
+          echo "DEPLOY_RELEASE_ID=${INPUT_RELEASE_ID:-}" >> "$GITHUB_ENV"
+          echo "DEPLOY_RELEASE_SOURCE_SHA=${INPUT_RELEASE_SOURCE_SHA:-$GITHUB_SHA}" >> "$GITHUB_ENV"
+
+      - name: Validate staging deployment configuration
+        env:
+          SSH_HOST: ${{ vars.STAGING_SSH_HOST }}
+          SSH_USER: ${{ vars.STAGING_SSH_USER }}
+          SSH_KNOWN_HOSTS: ${{ vars.STAGING_SSH_KNOWN_HOSTS }}
+          DEPLOY_PATH: ${{ vars.STAGING_DEPLOY_PATH }}
+          ENV_FILE: ${{ vars.STAGING_ENV_FILE }}
+          API_BASE_URL: ${{ vars.STAGING_API_BASE_URL }}
+          SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          ADMIN_USER: ${{ secrets.STAGING_ADMIN_USERNAME }}
+          ADMIN_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
+          GHCR_USERNAME: ${{ vars.STAGING_GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.STAGING_GHCR_TOKEN }}
+        run: |
+          set -euo pipefail
+          for value_name in SSH_HOST SSH_USER SSH_KNOWN_HOSTS DEPLOY_PATH ENV_FILE API_BASE_URL SSH_PRIVATE_KEY ADMIN_USER ADMIN_PASSWORD; do
+            value="${!value_name:-}"
+            if [ -z "$value" ]; then
+              echo "missing required staging deployment setting: $value_name" >&2
+              exit 1
+            fi
+          done
+          if [ "$DEPLOY_MODE" = "image" ]; then
+            for value_name in RELEASE_MANIFEST GHCR_USERNAME GHCR_TOKEN; do
+              value="${!value_name:-}"
+              if [ -z "$value" ]; then
+                echo "missing required image-mode staging setting: $value_name" >&2
+                exit 1
+              fi
+            done
+          fi
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+
+      - name: Write pinned known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ vars.STAGING_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Prepare release manifest
+        if: env.DEPLOY_MODE == 'image'
+        run: |
+          set -euo pipefail
+          mkdir -p ./artifacts/deploy-manifests/staging
+          printf '%s\n' "$RELEASE_MANIFEST" > ./artifacts/deploy-manifests/staging/release-manifest.env
+          echo "RELEASE_MANIFEST_SHA256=$(sha256sum ./artifacts/deploy-manifests/staging/release-manifest.env | awk '{print $1}')" >> "$GITHUB_ENV"
+          manifest_release_id="$(awk -F= '$1 == "RELEASE_ID" { print substr($0, index($0, "=") + 1) }' ./artifacts/deploy-manifests/staging/release-manifest.env || true)"
+          manifest_release_sha="$(awk -F= '$1 == "RELEASE_SOURCE_SHA" { print substr($0, index($0, "=") + 1) }' ./artifacts/deploy-manifests/staging/release-manifest.env || true)"
+          if [ -n "$manifest_release_id" ] && [ -z "${DEPLOY_RELEASE_ID:-}" ]; then
+            echo "DEPLOY_RELEASE_ID=$manifest_release_id" >> "$GITHUB_ENV"
+          fi
+          if [ -n "$manifest_release_sha" ] && [ -z "${DEPLOY_RELEASE_SOURCE_SHA:-}" ]; then
+            echo "DEPLOY_RELEASE_SOURCE_SHA=$manifest_release_sha" >> "$GITHUB_ENV"
+          fi
+
+      - name: Upload release manifest to staging host
+        if: env.DEPLOY_MODE == 'image'
+        env:
+          SSH_HOST: ${{ vars.STAGING_SSH_HOST }}
+          SSH_USER: ${{ vars.STAGING_SSH_USER }}
+          DEPLOY_PATH: ${{ vars.STAGING_DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          ssh "$SSH_USER@$SSH_HOST" "mkdir -p '$DEPLOY_PATH/artifacts/deploy-manifests/staging'"
+          scp ./artifacts/deploy-manifests/staging/release-manifest.env "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/artifacts/deploy-manifests/staging/release-manifest-${{ github.run_id }}.env"
+          echo "REMOTE_RELEASE_MANIFEST=$DEPLOY_PATH/artifacts/deploy-manifests/staging/release-manifest-${{ github.run_id }}.env" >> "$GITHUB_ENV"
+
+      - name: Deploy staging stack
+        env:
+          SSH_HOST: ${{ vars.STAGING_SSH_HOST }}
+          SSH_USER: ${{ vars.STAGING_SSH_USER }}
+          DEPLOY_PATH: ${{ vars.STAGING_DEPLOY_PATH }}
+          ENV_FILE: ${{ vars.STAGING_ENV_FILE }}
+          API_BASE_URL: ${{ vars.STAGING_API_BASE_URL }}
+          ADMIN_USER: ${{ secrets.STAGING_ADMIN_USERNAME }}
+          ADMIN_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
+          GHCR_USERNAME: ${{ vars.STAGING_GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.STAGING_GHCR_TOKEN }}
+        run: |
+          set -euo pipefail
+          ssh "$SSH_USER@$SSH_HOST" <<EOF
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          mkdir -p "$DEPLOY_PATH/artifacts/deploy-reports/staging" "$DEPLOY_PATH/artifacts/release-catalog/staging" "$DEPLOY_PATH/artifacts/release-ledgers/staging"
+          if [ "$DEPLOY_MODE" = "image" ]; then
+            printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+            set -a
+            . "$REMOTE_RELEASE_MANIFEST"
+            set +a
+            RELEASE_MANIFEST_PATH="$REMOTE_RELEASE_MANIFEST" \
+            RELEASE_MANIFEST_SHA256="$RELEASE_MANIFEST_SHA256" \
+            DEPLOY_PROMOTION_RUN_ID="$DEPLOY_PROMOTION_RUN_ID" \
+            DEPLOY_RELEASE_ID="$DEPLOY_RELEASE_ID" \
+            DEPLOY_RELEASE_SOURCE_SHA="$DEPLOY_RELEASE_SOURCE_SHA" \
+            DEPLOY_MODE=image \
+            DEPLOY_API_BASE_URL="$API_BASE_URL" \
+            DEPLOY_ADMIN_USER="$ADMIN_USER" \
+            DEPLOY_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+            DEPLOY_REPORT_DIR="$DEPLOY_PATH/artifacts/deploy-reports/staging" \
+            ./scripts/deploy-single-host.sh up "$ENV_FILE"
+            release_selector="$REMOTE_RELEASE_MANIFEST"
+            if [ -n "${DEPLOY_RELEASE_ID:-}" ]; then
+              release_selector="$DEPLOY_RELEASE_ID"
+            fi
+            ./scripts/release-catalog.sh sync-manifest "$DEPLOY_PATH/artifacts/release-catalog/staging/catalog.json" staging "$REMOTE_RELEASE_MANIFEST" "$RELEASE_MANIFEST_SHA256"
+            ./scripts/release-catalog.sh record-operation "$DEPLOY_PATH/artifacts/release-catalog/staging/catalog.json" staging "$release_selector" deploy "$DEPLOY_PATH/artifacts/deploy-reports/staging"
+            ./scripts/release-catalog.sh export-ledger "$DEPLOY_PATH/artifacts/release-catalog/staging/catalog.json" "$release_selector" "$DEPLOY_PATH/artifacts/release-ledgers/staging/release-ledger-${DEPLOY_RELEASE_ID:-latest}.json"
+          else
+            git fetch --all --tags --prune
+            git checkout "$DEPLOY_REF"
+            DEPLOY_PROMOTION_RUN_ID="$DEPLOY_PROMOTION_RUN_ID" \
+            DEPLOY_RELEASE_ID="$DEPLOY_RELEASE_ID" \
+            DEPLOY_RELEASE_SOURCE_SHA="$DEPLOY_RELEASE_SOURCE_SHA" \
+            DEPLOY_MODE=build \
+            DEPLOY_API_BASE_URL="$API_BASE_URL" \
+            DEPLOY_ADMIN_USER="$ADMIN_USER" \
+            DEPLOY_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+            DEPLOY_REPORT_DIR="$DEPLOY_PATH/artifacts/deploy-reports/staging" \
+            ./scripts/deploy-single-host.sh up "$ENV_FILE"
+          fi
+          EOF
+
+      - name: Download staging deploy artifacts
+        if: always()
+        env:
+          SSH_HOST: ${{ vars.STAGING_SSH_HOST }}
+          SSH_USER: ${{ vars.STAGING_SSH_USER }}
+          DEPLOY_PATH: ${{ vars.STAGING_DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          mkdir -p ./artifacts/deploy-reports/staging ./artifacts/deploy-manifests/staging ./artifacts/release-catalog/staging ./artifacts/release-ledgers/staging
+          scp -r "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/artifacts/deploy-reports/staging/." ./artifacts/deploy-reports/staging/ || true
+          scp -r "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/artifacts/deploy-manifests/staging/." ./artifacts/deploy-manifests/staging/ || true
+          scp -r "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/artifacts/release-catalog/staging/." ./artifacts/release-catalog/staging/ || true
+          scp -r "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/artifacts/release-ledgers/staging/." ./artifacts/release-ledgers/staging/ || true
+
+      - name: Attest staging release ledgers
+        if: always()
+        env:
+          LEDGER_ATTESTATION_SIGNING_KEY: ${{ secrets.RELEASE_LEDGER_ATTESTATION_KEY }}
+          LEDGER_ATTESTATION_KEY_ID: ${{ vars.RELEASE_LEDGER_ATTESTATION_KEY_ID }}
+          LEDGER_ATTESTATION_REQUIRE_SIGNED: ${{ vars.RELEASE_LEDGER_ATTESTATION_REQUIRED || 'false' }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mkdir -p ./artifacts/release-ledgers/staging
+          for ledger in ./artifacts/release-ledgers/staging/release-ledger-*.json; do
+            case "$ledger" in
+              *.attestation.json) continue ;;
+            esac
+            ./scripts/attest-release-ledger.sh "$ledger" "${ledger%.json}.attestation.json"
+            ./scripts/verify-release-ledger-attestation.sh "$ledger" "${ledger%.json}.attestation.json"
+          done
+
+      - name: Build staging release evidence summary
+        if: always() && env.DEPLOY_MODE == 'image'
+        run: |
+          set -euo pipefail
+          mkdir -p ./artifacts/release-evidence/staging
+          ./scripts/collect-release-evidence.sh \
+            staging \
+            ./artifacts/release-catalog/staging/catalog.json \
+            ./artifacts/release-ledgers/staging \
+            ./artifacts/release-evidence/staging
+
+      - name: Export staging release evidence to audit target
+        if: always() && env.DEPLOY_MODE == 'image' && vars.RELEASE_EVIDENCE_AUDIT_TARGET != ''
+        env:
+          RELEASE_EVIDENCE_AUDIT_TARGET: ${{ vars.RELEASE_EVIDENCE_AUDIT_TARGET }}
+          RELEASE_EVIDENCE_AWS_REGION: ${{ vars.RELEASE_EVIDENCE_AWS_REGION }}
+          RELEASE_EVIDENCE_AWS_ENDPOINT_URL: ${{ vars.RELEASE_EVIDENCE_AWS_ENDPOINT_URL }}
+        run: |
+          set -euo pipefail
+          ./scripts/export-release-evidence.sh \
+            staging \
+            ./artifacts/release-catalog/staging \
+            ./artifacts/release-ledgers/staging \
+            ./artifacts/release-evidence/staging \
+            "$RELEASE_EVIDENCE_AUDIT_TARGET"
+
+      - name: Verify staging evidence artifacts
+        if: always()
+        run: |
+          set -euo pipefail
+          archive_manifest="$(find ./artifacts/deploy-reports/staging -name 'archive-manifest-*.txt' -print -quit)"
+          deploy_manifest="$(find ./artifacts/deploy-reports/staging -name 'deploy-manifest-*.txt' -print -quit)"
+          if [ -z "$archive_manifest" ] || [ -z "$deploy_manifest" ]; then
+            echo "required staging evidence artifacts are missing" >&2
+            exit 1
+          fi
+          if [ "$DEPLOY_MODE" = "image" ]; then
+            test -f ./artifacts/release-catalog/staging/catalog.json || {
+              echo "staging release catalog is missing" >&2
+              exit 1
+            }
+            test -n "$(find ./artifacts/release-ledgers/staging -name 'release-ledger-*.json' -print -quit)" || {
+              echo "staging release ledger is missing" >&2
+              exit 1
+            }
+            test -f ./artifacts/release-evidence/staging/release-evidence-summary.json || {
+              echo "staging release evidence summary is missing" >&2
+              exit 1
+            }
+            grep -F "release_manifest_sha256=$RELEASE_MANIFEST_SHA256" "$deploy_manifest" >/dev/null 2>&1 || {
+              echo "deploy manifest does not record release manifest sha" >&2
+              exit 1
+            }
+          fi
+
+      - name: Upload staging deploy artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-deploy-reports
+          path: |
+            artifacts/deploy-reports/staging
+            artifacts/deploy-manifests/staging
+            artifacts/release-catalog/staging
+            artifacts/release-ledgers/staging
+            artifacts/release-evidence/staging
+          if-no-files-found: warn

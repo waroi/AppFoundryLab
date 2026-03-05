@@ -1,0 +1,41 @@
+name: Restore Drill Single Host
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 5 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  restore-drill:
+    name: Disposable restore drill
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run restore drill
+        env:
+          DEPLOY_ADMIN_USER: admin
+          DEPLOY_ADMIN_PASSWORD: admin_dev_password
+          RESTORE_DRILL_API_BASE_URL: http://127.0.0.1:8080
+          RESTORE_DRILL_FRONTEND_BASE_URL: http://127.0.0.1:4321
+          DEPLOY_REPORT_DIR: ./artifacts/restore-drill
+        run: ./scripts/restore-drill-single-host.sh ./.env.docker
+
+      - name: Collect compose logs on failure
+        if: failure()
+        run: docker compose --env-file .env.docker logs --tail=200
+
+      - name: Upload restore drill artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: restore-drill-artifacts
+          path: |
+            artifacts/restore-drill
+            artifacts/backups/bundles
+          if-no-files-found: warn

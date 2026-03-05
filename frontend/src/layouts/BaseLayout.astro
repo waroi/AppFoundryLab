@@ -1,0 +1,39 @@
+---
+import "../styles/global.scss";
+import PreferenceToolbar from "@/components/Layout/PreferenceToolbar.svelte";
+import { DEFAULT_THEME, type Locale } from "@/lib/ui/preferences";
+import { getPageTitle, type PageTitleKey } from "@/lib/ui/copy";
+
+interface Props {
+  pageTitleKey: PageTitleKey;
+  locale: Locale;
+}
+
+const { pageTitleKey, locale } = Astro.props;
+const title = getPageTitle(locale, pageTitleKey);
+const preferenceBootstrap = `
+  (() => {
+    const themeKey = "appfoundrylab.theme";
+    const theme = window.localStorage.getItem(themeKey) === "dark" ? "dark" : "${DEFAULT_THEME}";
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+  })();
+`;
+---
+
+<!doctype html>
+<html lang={locale} data-theme={DEFAULT_THEME}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <script is:inline set:html={preferenceBootstrap}></script>
+    <script is:inline src="/runtime-config.js"></script>
+  </head>
+  <body>
+    <main class="shell">
+      <PreferenceToolbar client:load pageTitleKey={pageTitleKey} initialLocale={locale} />
+      <slot />
+    </main>
+  </body>
+</html>

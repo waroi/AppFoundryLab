@@ -1,0 +1,17 @@
+services:
+  prometheus-operator-proxy:
+    image: ${PROMETHEUS_OPERATOR_PROXY_IMAGE:-caddy:2.8.4-alpine}
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      PROMETHEUS_OPERATOR_TLS_CERT_FILE: ${PROMETHEUS_OPERATOR_TLS_CERT_FILE:-/etc/caddy/operator-certs/server.crt}
+      PROMETHEUS_OPERATOR_TLS_KEY_FILE: ${PROMETHEUS_OPERATOR_TLS_KEY_FILE:-/etc/caddy/operator-certs/server.key}
+      PROMETHEUS_OPERATOR_CLIENT_CA_FILE: ${PROMETHEUS_OPERATOR_CLIENT_CA_FILE:-/etc/caddy/operator-certs/client-ca.crt}
+    volumes:
+      - ./deploy/observability/Caddyfile.prometheus-operator.mtls:/etc/caddy/Caddyfile:ro
+      - ./deploy/observability/operator-certs:/etc/caddy/operator-certs:ro
+    ports:
+      - "${PROMETHEUS_OPERATOR_BIND_ADDRESS:-127.0.0.1}:${PROMETHEUS_OPERATOR_PORT:-9443}:9443"
+    networks:
+      - backend_internal

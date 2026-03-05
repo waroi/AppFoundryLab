@@ -1,0 +1,16 @@
+{
+	auto_https off
+	admin off
+}
+
+:9443 {
+	tls /etc/caddy/operator-certs/server.crt /etc/caddy/operator-certs/server.key {
+		client_auth {
+			mode require_and_verify
+			trust_pool file /etc/caddy/operator-certs/client-ca.crt
+		}
+	}
+
+	reverse_proxy prometheus:9090
+	header -Server
+}

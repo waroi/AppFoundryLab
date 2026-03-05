@@ -1,0 +1,30 @@
+{
+	email ops@example.com
+}
+
+# Keep Prometheus host-local on single-host installs.
+# The observability overlay already binds `9090` to `127.0.0.1` on the host.
+# Do not add a public reverse_proxy for Prometheus unless you also add separate
+# auth and IP allowlisting.
+
+app.example.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:4321
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+}
+
+api.example.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8080
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+}

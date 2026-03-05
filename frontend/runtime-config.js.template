@@ -1,0 +1,3 @@
+window.__APP_CONFIG__ = {
+  apiBaseUrl: "${PUBLIC_API_BASE_URL}",
+};

@@ -1,0 +1,53 @@
+name: Backup Lifecycle Drift
+
+on:
+  workflow_dispatch:
+    inputs:
+      bucket_name:
+        description: S3 bucket name to inspect.
+        required: false
+        type: string
+      expected_policy_file:
+        description: Expected lifecycle policy file.
+        required: false
+        default: deploy/backups/s3-lifecycle-policy.example.json
+        type: string
+  schedule:
+    - cron: "20 2 * * 2"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check backup lifecycle drift
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || vars.BACKUP_S3_BUCKET != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve lifecycle drift inputs
+        env:
+          INPUT_BUCKET_NAME: ${{ github.event.inputs.bucket_name }}
+          INPUT_EXPECTED_POLICY_FILE: ${{ github.event.inputs.expected_policy_file }}
+        run: |
+          set -euo pipefail
+          echo "BUCKET_NAME=${INPUT_BUCKET_NAME:-${{ vars.BACKUP_S3_BUCKET }}}" >> "$GITHUB_ENV"
+          echo "EXPECTED_POLICY_FILE=${INPUT_EXPECTED_POLICY_FILE:-deploy/backups/s3-lifecycle-policy.example.json}" >> "$GITHUB_ENV"
+
+      - name: Validate lifecycle drift inputs
+        run: |
+          set -euo pipefail
+          if [ -z "${BUCKET_NAME:-}" ]; then
+            echo "bucket name is required" >&2
+            exit 1
+          fi
+
+      - name: Check lifecycle policy drift
+        env:
+          BACKUP_AWS_REGION: ${{ vars.RELEASE_EVIDENCE_AWS_REGION || vars.BACKUP_AWS_REGION }}
+          BACKUP_AWS_ENDPOINT_URL: ${{ vars.RELEASE_EVIDENCE_AWS_ENDPOINT_URL || vars.BACKUP_AWS_ENDPOINT_URL }}
+        run: |
+          set -euo pipefail
+          ./scripts/check-s3-lifecycle-policy.sh "$BUCKET_NAME" "$EXPECTED_POLICY_FILE"

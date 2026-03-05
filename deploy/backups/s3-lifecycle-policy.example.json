@@ -1,0 +1,30 @@
+{
+  "Rules": [
+    {
+      "ID": "release-evidence-audit-exports",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "release-evidence/exports/"
+      },
+      "Expiration": {
+        "Days": 365
+      },
+      "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 7
+      }
+    },
+    {
+      "ID": "backup-bundles-retention",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "backups/bundles/"
+      },
+      "Expiration": {
+        "Days": 180
+      },
+      "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 7
+      }
+    }
+  ]
+}

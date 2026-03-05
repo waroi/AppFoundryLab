@@ -1,0 +1,55 @@
+package httpiface
+
+import (
+	"net/http"
+	"strings"
+	"sync/atomic"
+)
+
+// LoadShedding is an optional net/http middleware snippet for starter services.
+// Keep it only if the service has burst-load or expensive handler risks.
+func LoadShedding(maxInFlight int, exemptPrefixes []string) func(http.Handler) http.Handler {
+	if maxInFlight <= 0 {
+		return func(next http.Handler) http.Handler { return next }
+	}
+
+	normalized := make([]string, 0, len(exemptPrefixes))
+	for _, prefix := range exemptPrefixes {
+		prefix = strings.TrimSpace(prefix)
+		if prefix == "" {
+			continue
+		}
+		normalized = append(normalized, prefix)
+	}
+
+	var inflight atomic.Int64
+
+	isExempt := func(path string) bool {
+		for _, prefix := range normalized {
+			if strings.HasPrefix(path, prefix) {
+				return true
+			}
+		}
+		return false
+	}
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if isExempt(r.URL.Path) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			current := inflight.Add(1)
+			if current > int64(maxInFlight) {
+				inflight.Add(-1)
+				w.Header().Set("Retry-After", "1")
+				http.Error(w, "server overloaded, try again soon", http.StatusServiceUnavailable)
+				return
+			}
+			defer inflight.Add(-1)
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}

@@ -1,0 +1,13 @@
+{
+	auto_https off
+	admin off
+}
+
+:9443 {
+	basic_auth {
+		{$PROMETHEUS_OPERATOR_USERNAME} {$PROMETHEUS_OPERATOR_PASSWORD_HASH}
+	}
+
+	reverse_proxy prometheus:9090
+	header -Server
+}

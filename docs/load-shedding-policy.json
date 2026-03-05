@@ -1,0 +1,12 @@
+{
+  "statusCode": 503,
+  "retryAfterSeconds": 1,
+  "defaultExemptPrefixes": [
+    "/health",
+    "/metrics"
+  ],
+  "sourceEnv": [
+    "MAX_INFLIGHT_REQUESTS",
+    "LOAD_SHED_EXEMPT_PREFIXES"
+  ]
+}

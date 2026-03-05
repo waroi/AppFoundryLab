@@ -1,0 +1,99 @@
+{
+  "releaseGate": {
+    "automatedChecks": [
+      "script-quality-gate-ci",
+      "release-gate-fast",
+      "profile-capacity-matrix",
+      "boilerplate-quality-report"
+    ],
+    "manualChecks": [
+      "ci-required-jobs-green",
+      "trivy-gitleaks-review",
+      "dependabot-queue-review",
+      "perf-trend-diff-review",
+      "load-shed-policy-review",
+      "restore-drill-artifact-review",
+      "release-evidence-audit-review",
+      "backup-lifecycle-drift-review"
+    ]
+  },
+  "releaseChecklist": [
+    {
+      "id": "script-quality-gate-ci",
+      "kind": "automated",
+      "summary": "Script quality gate must pass in CI with strict worker validation."
+    },
+    {
+      "id": "release-gate-fast",
+      "kind": "automated",
+      "summary": "Fast gate must pass before merge or release."
+    },
+    {
+      "id": "release-gate-full-optional",
+      "kind": "manual",
+      "summary": "Nightly full gate should be reviewed for deeper release confidence."
+    },
+    {
+      "id": "ci-required-jobs-green",
+      "kind": "manual",
+      "summary": "Required CI jobs must be green."
+    },
+    {
+      "id": "trivy-gitleaks-review",
+      "kind": "manual",
+      "summary": "Security scan findings must be reviewed."
+    },
+    {
+      "id": "dependabot-queue-review",
+      "kind": "manual",
+      "summary": "Pending dependency updates should be reviewed."
+    },
+    {
+      "id": "perf-trend-diff-review",
+      "kind": "manual",
+      "summary": "PR perf trend diff should be checked."
+    },
+    {
+      "id": "load-shed-policy-review",
+      "kind": "manual",
+      "summary": "Load shedding policy and runbook must match system behavior."
+    },
+    {
+      "id": "single-host-runtime-report-archive-review",
+      "kind": "manual",
+      "summary": "For VPS rollouts, the post-deploy runtime report archive should be reviewed."
+    },
+    {
+      "id": "restore-drill-artifact-review",
+      "kind": "manual",
+      "summary": "Latest restore drill bundle and archive artifacts should be reviewed before high-risk releases."
+    },
+    {
+      "id": "release-evidence-audit-review",
+      "kind": "manual",
+      "summary": "Latest exported release evidence bundle should be reviewed for long-term audit completeness."
+    },
+    {
+      "id": "backup-lifecycle-drift-review",
+      "kind": "manual",
+      "summary": "Latest backup lifecycle drift run should be reviewed before relying on bucket retention guarantees."
+    }
+  ],
+  "ciReferences": [
+    "script-quality-gate-ci",
+    "release-gate-fast",
+    "release-gate-full-nightly",
+    "perf-extended-nightly",
+    "frontend-api-contract-matrix",
+    "profile-capacity-matrix",
+    "boilerplate-quality-report",
+    "compare-k6-summary-vs-base-pr",
+    "deploy-single-host-staging",
+    "deploy-single-host-production",
+    "single-host-ops",
+    "publish-ghcr-images",
+    "restore-drill-single-host",
+    "release-evidence-harvest",
+    "backup-lifecycle-drift"
+  ]
+}

@@ -1,0 +1,116 @@
+name: Perf Extended Nightly
+
+on:
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  perf-extended-nightly:
+    name: Perf Extended Nightly (spike + soak)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate dev certs
+        run: ./scripts/certs-dev.sh
+
+      - name: Start stack
+        run: docker compose --env-file .env.docker up --build -d
+
+      - name: Wait for API readiness
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8080/health/live >/dev/null; then
+              echo "api-gateway is live"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "api-gateway did not become live in time" >&2
+          docker compose --env-file .env.docker ps
+          exit 1
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run spike scenario
+        run: ./scripts/run-k6-scenario.sh spike ./artifacts/perf-extended
+
+      - name: Parse spike summary
+        run: |
+          python3 ./scripts/parse-k6-summary.py \
+            --input ./artifacts/perf-extended/k6-spike-summary.json \
+            --scenario spike \
+            --out-json ./artifacts/perf-extended/k6-spike-report.json \
+            --out-md ./artifacts/perf-extended/k6-spike-report.md
+
+      - name: Run soak scenario
+        run: ./scripts/run-k6-scenario.sh soak ./artifacts/perf-extended
+
+      - name: Parse soak summary
+        run: |
+          python3 ./scripts/parse-k6-summary.py \
+            --input ./artifacts/perf-extended/k6-soak-summary.json \
+            --scenario soak \
+            --out-json ./artifacts/perf-extended/k6-soak-report.json \
+            --out-md ./artifacts/perf-extended/k6-soak-report.md
+
+      - name: Publish extended perf summary
+        run: |
+          {
+            echo "# Perf Extended Nightly"
+            echo
+            echo "- spike summary: \`artifacts/perf-extended/k6-spike-summary.json\`"
+            echo "- soak summary: \`artifacts/perf-extended/k6-soak-summary.json\`"
+            echo
+            cat ./artifacts/perf-extended/k6-spike-report.md
+            echo
+            cat ./artifacts/perf-extended/k6-soak-report.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Generate nightly quality report
+        run: |
+          mkdir -p ./artifacts/quality
+          python3 ./scripts/generate-quality-report.py \
+            --readme ./README.md \
+            --plan ./docs/gelistirmePlanı.md \
+            --out-md ./artifacts/quality/perf-extended-quality-report.md \
+            --out-json ./artifacts/quality/perf-extended-quality-report.json \
+            --workflow-name "Perf Extended Nightly" \
+            --needs-json '{}' \
+            --governance-checklist ./docs/release-checklist.json \
+            --governance-doc ./docs/release-policy.md \
+            --governance-doc ./docs/delivery-workflow-governance-matrix.md \
+            --governance-doc ./docs/nightly-workflow-governance-matrix.md \
+            --governance-doc ./docs/branch-protection-required-checks.md \
+            --extended-perf-json ./artifacts/perf-extended/k6-spike-report.json \
+            --extended-perf-json ./artifacts/perf-extended/k6-soak-report.json
+
+      - name: Publish nightly quality report
+        run: cat ./artifacts/quality/perf-extended-quality-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload extended perf artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-extended-nightly
+          path: |
+            artifacts/perf-extended/k6-spike-summary.json
+            artifacts/perf-extended/k6-soak-summary.json
+            artifacts/perf-extended/k6-spike-report.json
+            artifacts/perf-extended/k6-spike-report.md
+            artifacts/perf-extended/k6-soak-report.json
+            artifacts/perf-extended/k6-soak-report.md
+            artifacts/quality/perf-extended-quality-report.md
+            artifacts/quality/perf-extended-quality-report.json
+          if-no-files-found: error
+
+      - name: Print compose logs on failure
+        if: failure()
+        run: docker compose --env-file .env.docker logs --tail=200
+
+      - name: Stop stack
+        if: always()
+        run: docker compose --env-file .env.docker down -v

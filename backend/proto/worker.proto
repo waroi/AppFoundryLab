@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package worker;
+
+option go_package = "github.com/example/appfoundrylab/backend/services/api-gateway/internal/worker/workerpb;workerpb";
+
+service WorkerService {
+  rpc Health(HealthRequest) returns (HealthResponse);
+  rpc ComputeFibonacci(ComputeFibonacciRequest) returns (ComputeFibonacciResponse);
+  rpc ComputeHash(ComputeHashRequest) returns (ComputeHashResponse);
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  string status = 1;
+  string service = 2;
+}
+
+message ComputeFibonacciRequest {
+  uint32 n = 1;
+}
+
+message ComputeFibonacciResponse {
+  uint32 n = 1;
+  uint64 value = 2;
+}
+
+message ComputeHashRequest {
+  string input = 1;
+}
+
+message ComputeHashResponse {
+  string algorithm = 1;
+  string hash = 2;
+}

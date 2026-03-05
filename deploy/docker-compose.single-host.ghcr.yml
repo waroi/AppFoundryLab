@@ -1,0 +1,20 @@
+services:
+  logger:
+    image: ${LOGGER_IMAGE:?LOGGER_IMAGE is required for DEPLOY_MODE=image}
+    build: null
+    pull_policy: always
+
+  calculator:
+    image: ${CALCULATOR_IMAGE:?CALCULATOR_IMAGE is required for DEPLOY_MODE=image}
+    build: null
+    pull_policy: always
+
+  api-gateway:
+    image: ${API_GATEWAY_IMAGE:?API_GATEWAY_IMAGE is required for DEPLOY_MODE=image}
+    build: null
+    pull_policy: always
+
+  frontend:
+    image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE is required for DEPLOY_MODE=image}
+    build: null
+    pull_policy: always

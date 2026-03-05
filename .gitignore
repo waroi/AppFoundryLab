@@ -1,0 +1,23 @@
+multi_agent/runtime/**
+!multi_agent/runtime/
+!multi_agent/runtime/.gitkeep
+!multi_agent/runtime/runs/
+!multi_agent/runtime/runs/.gitkeep
+
+# PPB workspace artifacts
+.env
+**/.DS_Store
+**/node_modules/
+**/dist/
+**/.astro/
+**/coverage/
+**/target/
+**/tmp/
+frontend/bun.lockb
+backend/infrastructure/certs/dev/*
+!backend/infrastructure/certs/dev/.gitkeep
+**/.multi_agent/
+.multi_agent/
+AGENTS.md
+**/.skills/
+.skills/

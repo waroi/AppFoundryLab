@@ -1,0 +1,59 @@
+services:
+  postgres:
+    ports: []
+    networks:
+      - backend_internal
+
+  redis:
+    ports: []
+    networks:
+      - backend_internal
+
+  mongo:
+    ports: []
+    networks:
+      - backend_internal
+
+  logger:
+    env_file:
+      - ${APP_ENV_FILE:-.env.docker.local}
+    ports: []
+    networks:
+      - backend_internal
+
+  calculator:
+    env_file:
+      - ${APP_ENV_FILE:-.env.docker.local}
+    ports: []
+    networks:
+      - backend_internal
+
+  api-gateway:
+    env_file:
+      - ${APP_ENV_FILE:-.env.docker.local}
+    networks:
+      - backend_internal
+      - edge
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-http://127.0.0.1:8080}
+        PUBLIC_API_RETRY_MAX_ATTEMPTS: ${PUBLIC_API_RETRY_MAX_ATTEMPTS:-2}
+        PUBLIC_API_RETRY_BASE_DELAY_MS: ${PUBLIC_API_RETRY_BASE_DELAY_MS:-200}
+        PUBLIC_API_CIRCUIT_FAILURE_THRESHOLD: ${PUBLIC_API_CIRCUIT_FAILURE_THRESHOLD:-5}
+        PUBLIC_API_CIRCUIT_COOLDOWN_MS: ${PUBLIC_API_CIRCUIT_COOLDOWN_MS:-15000}
+    env_file:
+      - ${APP_ENV_FILE:-.env.docker.local}
+    networks:
+      - backend_internal
+      - edge
+
+networks:
+  edge:
+    driver: bridge
+  backend_internal:
+    driver: bridge
+    internal: true

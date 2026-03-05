@@ -1,0 +1,492 @@
+name: Single Host Ops
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        required: true
+        type: string
+      operation:
+        required: true
+        type: string
+      git_ref:
+        required: false
+        type: string
+      release_selector:
+        required: false
+        type: string
+      release_manifest:
+        required: false
+        type: string
+      retention_days:
+        required: false
+        type: string
+      promotion_run_id:
+        required: false
+        type: string
+      release_id:
+        required: false
+        type: string
+      release_source_sha:
+        required: false
+        type: string
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Target environment.
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      operation:
+        description: Remote operation to execute.
+        required: true
+        type: choice
+        options:
+          - backup-all
+          - backup-postgres
+          - backup-mongo
+          - prune-incidents
+          - rollback
+          - restore-drill
+          - list-release-catalog
+      git_ref:
+        description: Git ref for build-mode rollback.
+        required: false
+        type: string
+      release_selector:
+        description: Catalog selector for image-mode rollback or restore drill (latest, previous, release-id, sha:...).
+        required: false
+        type: string
+      release_manifest:
+        description: Optional multi-line image manifest for rollback or restore drill.
+        required: false
+        type: string
+      retention_days:
+        description: Optional retention override for prune-incidents.
+        required: false
+        type: string
+  schedule:
+    - cron: "30 3 * * *"
+    - cron: "0 4 * * *"
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: single-host-ops
+  cancel-in-progress: false
+
+jobs:
+  ops:
+    name: Run remote single-host operation
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: ${{ inputs.target || github.event.inputs.target || 'production' }}
+    if: github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || vars.PRODUCTION_OPS_AUTOMATION_ENABLED == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve operation target
+        env:
+          INPUT_TARGET: ${{ inputs.target || github.event.inputs.target }}
+          INPUT_OPERATION: ${{ inputs.operation || github.event.inputs.operation }}
+          INPUT_GIT_REF: ${{ inputs.git_ref || github.event.inputs.git_ref }}
+          INPUT_RELEASE_SELECTOR: ${{ inputs.release_selector || github.event.inputs.release_selector }}
+          INPUT_RELEASE_MANIFEST: ${{ inputs.release_manifest || github.event.inputs.release_manifest }}
+          INPUT_RETENTION_DAYS: ${{ inputs.retention_days || github.event.inputs.retention_days }}
+          INPUT_PROMOTION_RUN_ID: ${{ inputs.promotion_run_id }}
+          INPUT_RELEASE_ID: ${{ inputs.release_id }}
+          INPUT_RELEASE_SOURCE_SHA: ${{ inputs.release_source_sha }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_call" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "OPS_TARGET=$INPUT_TARGET" >> "$GITHUB_ENV"
+            echo "OPS_OPERATION=$INPUT_OPERATION" >> "$GITHUB_ENV"
+            echo "OPS_GIT_REF=$INPUT_GIT_REF" >> "$GITHUB_ENV"
+            echo "OPS_RELEASE_SELECTOR=$INPUT_RELEASE_SELECTOR" >> "$GITHUB_ENV"
+            printf 'OPS_RELEASE_MANIFEST<<EOF\n%s\nEOF\n' "$INPUT_RELEASE_MANIFEST" >> "$GITHUB_ENV"
+            echo "OPS_RETENTION_DAYS=$INPUT_RETENTION_DAYS" >> "$GITHUB_ENV"
+            echo "DEPLOY_PROMOTION_RUN_ID=${INPUT_PROMOTION_RUN_ID:-$GITHUB_RUN_ID}" >> "$GITHUB_ENV"
+            echo "DEPLOY_RELEASE_ID=${INPUT_RELEASE_ID:-}" >> "$GITHUB_ENV"
+            echo "DEPLOY_RELEASE_SOURCE_SHA=${INPUT_RELEASE_SOURCE_SHA:-$GITHUB_SHA}" >> "$GITHUB_ENV"
+          elif [ "${{ github.event.schedule }}" = "30 3 * * *" ]; then
+            echo "OPS_TARGET=production" >> "$GITHUB_ENV"
+            echo "OPS_OPERATION=backup-all" >> "$GITHUB_ENV"
+            echo "OPS_GIT_REF=" >> "$GITHUB_ENV"
+            echo "OPS_RELEASE_SELECTOR=" >> "$GITHUB_ENV"
+            printf 'OPS_RELEASE_MANIFEST<<EOF\n\nEOF\n' >> "$GITHUB_ENV"
+            echo "OPS_RETENTION_DAYS=" >> "$GITHUB_ENV"
+            echo "DEPLOY_PROMOTION_RUN_ID=$GITHUB_RUN_ID" >> "$GITHUB_ENV"
+            echo "DEPLOY_RELEASE_ID=" >> "$GITHUB_ENV"
+            echo "DEPLOY_RELEASE_SOURCE_SHA=$GITHUB_SHA" >> "$GITHUB_ENV"
+          else
+            echo "OPS_TARGET=production" >> "$GITHUB_ENV"
+            echo "OPS_OPERATION=prune-incidents" >> "$GITHUB_ENV"
+            echo "OPS_GIT_REF=" >> "$GITHUB_ENV"
+            echo "OPS_RELEASE_SELECTOR=" >> "$GITHUB_ENV"
+            printf 'OPS_RELEASE_MANIFEST<<EOF\n\nEOF\n' >> "$GITHUB_ENV"
+            echo "OPS_RETENTION_DAYS=" >> "$GITHUB_ENV"
+            echo "DEPLOY_PROMOTION_RUN_ID=$GITHUB_RUN_ID" >> "$GITHUB_ENV"
+            echo "DEPLOY_RELEASE_ID=" >> "$GITHUB_ENV"
+            echo "DEPLOY_RELEASE_SOURCE_SHA=$GITHUB_SHA" >> "$GITHUB_ENV"
+          fi
+
+      - name: Select environment-specific settings
+        env:
+          STAGING_SSH_HOST: ${{ vars.STAGING_SSH_HOST }}
+          STAGING_SSH_USER: ${{ vars.STAGING_SSH_USER }}
+          STAGING_SSH_KNOWN_HOSTS: ${{ vars.STAGING_SSH_KNOWN_HOSTS }}
+          STAGING_DEPLOY_PATH: ${{ vars.STAGING_DEPLOY_PATH }}
+          STAGING_ENV_FILE: ${{ vars.STAGING_ENV_FILE }}
+          STAGING_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL }}
+          STAGING_GHCR_USERNAME: ${{ vars.STAGING_GHCR_USERNAME }}
+          STAGING_SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          STAGING_ADMIN_USER: ${{ secrets.STAGING_ADMIN_USERNAME }}
+          STAGING_ADMIN_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
+          STAGING_GHCR_TOKEN: ${{ secrets.STAGING_GHCR_TOKEN }}
+          PRODUCTION_SSH_HOST: ${{ vars.PRODUCTION_SSH_HOST }}
+          PRODUCTION_SSH_USER: ${{ vars.PRODUCTION_SSH_USER }}
+          PRODUCTION_SSH_KNOWN_HOSTS: ${{ vars.PRODUCTION_SSH_KNOWN_HOSTS }}
+          PRODUCTION_DEPLOY_PATH: ${{ vars.PRODUCTION_DEPLOY_PATH }}
+          PRODUCTION_ENV_FILE: ${{ vars.PRODUCTION_ENV_FILE }}
+          PRODUCTION_API_BASE_URL: ${{ vars.PRODUCTION_API_BASE_URL }}
+          PRODUCTION_GHCR_USERNAME: ${{ vars.PRODUCTION_GHCR_USERNAME }}
+          PRODUCTION_SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
+          PRODUCTION_ADMIN_USER: ${{ secrets.PRODUCTION_ADMIN_USERNAME }}
+          PRODUCTION_ADMIN_PASSWORD: ${{ secrets.PRODUCTION_ADMIN_PASSWORD }}
+          PRODUCTION_GHCR_TOKEN: ${{ secrets.PRODUCTION_GHCR_TOKEN }}
+        run: |
+          set -euo pipefail
+          case "$OPS_TARGET" in
+            staging)
+              echo "SSH_HOST=$STAGING_SSH_HOST" >> "$GITHUB_ENV"
+              echo "SSH_USER=$STAGING_SSH_USER" >> "$GITHUB_ENV"
+              echo "SSH_KNOWN_HOSTS=$STAGING_SSH_KNOWN_HOSTS" >> "$GITHUB_ENV"
+              echo "DEPLOY_PATH=$STAGING_DEPLOY_PATH" >> "$GITHUB_ENV"
+              echo "ENV_FILE=$STAGING_ENV_FILE" >> "$GITHUB_ENV"
+              echo "API_BASE_URL=$STAGING_API_BASE_URL" >> "$GITHUB_ENV"
+              echo "GHCR_USERNAME=$STAGING_GHCR_USERNAME" >> "$GITHUB_ENV"
+              printf 'SSH_PRIVATE_KEY<<EOF\n%s\nEOF\n' "$STAGING_SSH_PRIVATE_KEY" >> "$GITHUB_ENV"
+              printf 'ADMIN_USER<<EOF\n%s\nEOF\n' "$STAGING_ADMIN_USER" >> "$GITHUB_ENV"
+              printf 'ADMIN_PASSWORD<<EOF\n%s\nEOF\n' "$STAGING_ADMIN_PASSWORD" >> "$GITHUB_ENV"
+              printf 'GHCR_TOKEN<<EOF\n%s\nEOF\n' "$STAGING_GHCR_TOKEN" >> "$GITHUB_ENV"
+              ;;
+            production)
+              echo "SSH_HOST=$PRODUCTION_SSH_HOST" >> "$GITHUB_ENV"
+              echo "SSH_USER=$PRODUCTION_SSH_USER" >> "$GITHUB_ENV"
+              echo "SSH_KNOWN_HOSTS=$PRODUCTION_SSH_KNOWN_HOSTS" >> "$GITHUB_ENV"
+              echo "DEPLOY_PATH=$PRODUCTION_DEPLOY_PATH" >> "$GITHUB_ENV"
+              echo "ENV_FILE=$PRODUCTION_ENV_FILE" >> "$GITHUB_ENV"
+              echo "API_BASE_URL=$PRODUCTION_API_BASE_URL" >> "$GITHUB_ENV"
+              echo "GHCR_USERNAME=$PRODUCTION_GHCR_USERNAME" >> "$GITHUB_ENV"
+              printf 'SSH_PRIVATE_KEY<<EOF\n%s\nEOF\n' "$PRODUCTION_SSH_PRIVATE_KEY" >> "$GITHUB_ENV"
+              printf 'ADMIN_USER<<EOF\n%s\nEOF\n' "$PRODUCTION_ADMIN_USER" >> "$GITHUB_ENV"
+              printf 'ADMIN_PASSWORD<<EOF\n%s\nEOF\n' "$PRODUCTION_ADMIN_PASSWORD" >> "$GITHUB_ENV"
+              printf 'GHCR_TOKEN<<EOF\n%s\nEOF\n' "$PRODUCTION_GHCR_TOKEN" >> "$GITHUB_ENV"
+              ;;
+            *)
+              echo "unsupported target: $OPS_TARGET" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Validate remote operation configuration
+        run: |
+          set -euo pipefail
+          for value_name in SSH_HOST SSH_USER SSH_KNOWN_HOSTS DEPLOY_PATH ENV_FILE SSH_PRIVATE_KEY; do
+            value="${!value_name:-}"
+            if [ -z "$value" ]; then
+              echo "missing required remote ops setting: $value_name" >&2
+              exit 1
+            fi
+          done
+          if [ "$OPS_OPERATION" = "rollback" ] && [ -z "$OPS_GIT_REF" ] && [ -z "${OPS_RELEASE_MANIFEST:-}" ] && [ -z "${OPS_RELEASE_SELECTOR:-}" ]; then
+            echo "git_ref, release_manifest, or release_selector is required for rollback" >&2
+            exit 1
+          fi
+          if [ "$OPS_OPERATION" = "rollback" ] || [ "$OPS_OPERATION" = "restore-drill" ]; then
+            for value_name in API_BASE_URL ADMIN_USER ADMIN_PASSWORD; do
+              value="${!value_name:-}"
+              if [ -z "$value" ]; then
+                echo "missing required admin setting: $value_name" >&2
+                exit 1
+              fi
+            done
+          fi
+          if { [ "$OPS_OPERATION" = "rollback" ] || [ "$OPS_OPERATION" = "restore-drill" ]; } && { [ -n "${OPS_RELEASE_MANIFEST:-}" ] || [ -n "${OPS_RELEASE_SELECTOR:-}" ]; }; then
+            for value_name in GHCR_USERNAME GHCR_TOKEN; do
+              value="${!value_name:-}"
+              if [ -z "$value" ]; then
+                echo "missing required GHCR setting for image-mode operation: $value_name" >&2
+                exit 1
+              fi
+            done
+          fi
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ env.SSH_PRIVATE_KEY }}
+
+      - name: Write pinned known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Upload release manifest for image-mode operations
+        if: (env.OPS_OPERATION == 'rollback' || env.OPS_OPERATION == 'restore-drill') && env.OPS_RELEASE_MANIFEST != ''
+        run: |
+          set -euo pipefail
+          mkdir -p ./artifacts/ops-manifests
+          printf '%s\n' "$OPS_RELEASE_MANIFEST" > ./artifacts/ops-manifests/release-manifest.env
+          echo "REMOTE_RELEASE_MANIFEST_SHA256=$(sha256sum ./artifacts/ops-manifests/release-manifest.env | awk '{print $1}')" >> "$GITHUB_ENV"
+          ssh "$SSH_USER@$SSH_HOST" "mkdir -p '$DEPLOY_PATH/artifacts/deploy-manifests/$OPS_TARGET'"
+          scp ./artifacts/ops-manifests/release-manifest.env "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/artifacts/deploy-manifests/$OPS_TARGET/release-manifest-ops-${{ github.run_id }}.env"
+          echo "REMOTE_RELEASE_MANIFEST=$DEPLOY_PATH/artifacts/deploy-manifests/$OPS_TARGET/release-manifest-ops-${{ github.run_id }}.env" >> "$GITHUB_ENV"
+
+      - name: Run remote operation
+        run: |
+          set -euo pipefail
+          ssh "$SSH_USER@$SSH_HOST" <<EOF
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          mkdir -p "$DEPLOY_PATH/artifacts/deploy-reports/$OPS_TARGET" "$DEPLOY_PATH/artifacts/restore-drill" "$DEPLOY_PATH/artifacts/release-catalog/$OPS_TARGET" "$DEPLOY_PATH/artifacts/release-ledgers/$OPS_TARGET"
+          catalog_path="$DEPLOY_PATH/artifacts/release-catalog/$OPS_TARGET/catalog.json"
+          resolved_release_manifest="${REMOTE_RELEASE_MANIFEST:-}"
+          resolved_release_manifest_sha256="${REMOTE_RELEASE_MANIFEST_SHA256:-}"
+          release_selector="${OPS_RELEASE_SELECTOR:-}"
+
+          if { [ "$OPS_OPERATION" = "rollback" ] || [ "$OPS_OPERATION" = "restore-drill" ]; } && [ -z "$resolved_release_manifest" ] && [ -n "$release_selector" ]; then
+            resolved_release_manifest="$(./scripts/release-catalog.sh resolve "$catalog_path" "$release_selector")"
+            resolved_release_manifest_sha256="$(sha256sum "$resolved_release_manifest" | awk '{print $1}')"
+          fi
+
+          case "$OPS_OPERATION" in
+            backup-all)
+              ./scripts/backup-single-host.sh "$ENV_FILE"
+              ;;
+            backup-postgres)
+              ./scripts/backup-postgres.sh "$ENV_FILE"
+              ;;
+            backup-mongo)
+              ./scripts/backup-mongo.sh "$ENV_FILE"
+              ;;
+            prune-incidents)
+              ./scripts/prune-incident-events.sh "$ENV_FILE" "$OPS_RETENTION_DAYS"
+              ;;
+            rollback)
+              if [ -n "$resolved_release_manifest" ]; then
+                printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+                if [ -z "$release_selector" ]; then
+                  release_selector="$resolved_release_manifest"
+                fi
+                RELEASE_MANIFEST_PATH="$resolved_release_manifest" \
+                RELEASE_MANIFEST_SHA256="$resolved_release_manifest_sha256" \
+                DEPLOY_PROMOTION_RUN_ID="$DEPLOY_PROMOTION_RUN_ID" \
+                DEPLOY_RELEASE_ID="$DEPLOY_RELEASE_ID" \
+                DEPLOY_RELEASE_SOURCE_SHA="$DEPLOY_RELEASE_SOURCE_SHA" \
+                DEPLOY_API_BASE_URL="$API_BASE_URL" \
+                DEPLOY_ADMIN_USER="$ADMIN_USER" \
+                DEPLOY_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+                DEPLOY_REPORT_DIR="$DEPLOY_PATH/artifacts/deploy-reports/$OPS_TARGET" \
+                RELEASE_CATALOG_PATH="$catalog_path" \
+                ./scripts/rollback-single-host.sh "$resolved_release_manifest" "$ENV_FILE"
+                ./scripts/release-catalog.sh sync-manifest "$catalog_path" "$OPS_TARGET" "$resolved_release_manifest" "$resolved_release_manifest_sha256"
+                ./scripts/release-catalog.sh record-operation "$catalog_path" "$OPS_TARGET" "$release_selector" rollback "$DEPLOY_PATH/artifacts/deploy-reports/$OPS_TARGET"
+                ./scripts/release-catalog.sh export-ledger "$catalog_path" "$release_selector" "$DEPLOY_PATH/artifacts/release-ledgers/$OPS_TARGET/release-ledger-${DEPLOY_RELEASE_ID:-rollback}.json"
+              else
+                git fetch --all --tags --prune
+                DEPLOY_PROMOTION_RUN_ID="$DEPLOY_PROMOTION_RUN_ID" \
+                DEPLOY_RELEASE_ID="$DEPLOY_RELEASE_ID" \
+                DEPLOY_RELEASE_SOURCE_SHA="$DEPLOY_RELEASE_SOURCE_SHA" \
+                DEPLOY_API_BASE_URL="$API_BASE_URL" \
+                DEPLOY_ADMIN_USER="$ADMIN_USER" \
+                DEPLOY_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+                DEPLOY_REPORT_DIR="$DEPLOY_PATH/artifacts/deploy-reports/$OPS_TARGET" \
+                ./scripts/rollback-single-host.sh "$OPS_GIT_REF" "$ENV_FILE"
+              fi
+              ;;
+            restore-drill)
+              if [ -n "$resolved_release_manifest" ]; then
+                printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+                set -a
+                . "$resolved_release_manifest"
+                set +a
+                if [ -z "$release_selector" ]; then
+                  release_selector="$resolved_release_manifest"
+                fi
+                RELEASE_MANIFEST_PATH="$resolved_release_manifest" \
+                RELEASE_MANIFEST_SHA256="$resolved_release_manifest_sha256" \
+                DEPLOY_PROMOTION_RUN_ID="$DEPLOY_PROMOTION_RUN_ID" \
+                DEPLOY_RELEASE_ID="$DEPLOY_RELEASE_ID" \
+                DEPLOY_RELEASE_SOURCE_SHA="$DEPLOY_RELEASE_SOURCE_SHA" \
+                DEPLOY_MODE=image \
+                DEPLOY_API_BASE_URL="$API_BASE_URL" \
+                DEPLOY_ADMIN_USER="$ADMIN_USER" \
+                DEPLOY_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+                DEPLOY_REPORT_DIR="$DEPLOY_PATH/artifacts/restore-drill" \
+                ./scripts/restore-drill-single-host.sh "$ENV_FILE"
+                ./scripts/release-catalog.sh sync-manifest "$catalog_path" "$OPS_TARGET" "$resolved_release_manifest" "$resolved_release_manifest_sha256"
+                ./scripts/release-catalog.sh record-operation "$catalog_path" "$OPS_TARGET" "$release_selector" restore-drill "$DEPLOY_PATH/artifacts/restore-drill"
+                ./scripts/release-catalog.sh export-ledger "$catalog_path" "$release_selector" "$DEPLOY_PATH/artifacts/release-ledgers/$OPS_TARGET/release-ledger-${DEPLOY_RELEASE_ID:-restore-drill}.json"
+              else
+                DEPLOY_PROMOTION_RUN_ID="$DEPLOY_PROMOTION_RUN_ID" \
+                DEPLOY_RELEASE_ID="$DEPLOY_RELEASE_ID" \
+                DEPLOY_RELEASE_SOURCE_SHA="$DEPLOY_RELEASE_SOURCE_SHA" \
+                DEPLOY_API_BASE_URL="$API_BASE_URL" \
+                DEPLOY_ADMIN_USER="$ADMIN_USER" \
+                DEPLOY_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+                DEPLOY_REPORT_DIR="$DEPLOY_PATH/artifacts/restore-drill" \
+                ./scripts/restore-drill-single-host.sh "$ENV_FILE"
+              fi
+              ;;
+            list-release-catalog)
+              test -f "$catalog_path"
+              ./scripts/release-catalog.sh list "$catalog_path" >/dev/null
+              ;;
+            *)
+              echo "unsupported operation: $OPS_OPERATION" >&2
+              exit 1
+              ;;
+          esac
+          EOF
+
+      - name: Download remote operation artifacts
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p "./artifacts/ops/$OPS_TARGET" "./artifacts/release-catalog/$OPS_TARGET" "./artifacts/release-ledgers/$OPS_TARGET"
+          case "$OPS_OPERATION" in
+            backup-all)
+              remote_dir="$(ssh "$SSH_USER@$SSH_HOST" "find '$DEPLOY_PATH/artifacts/backups/bundles' -maxdepth 1 -mindepth 1 -type d -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 1 | cut -d' ' -f2-" || true)"
+              if [ -n "$remote_dir" ]; then
+                scp -r "$SSH_USER@$SSH_HOST:$remote_dir" "./artifacts/ops/$OPS_TARGET/" || true
+              fi
+              ;;
+            backup-postgres)
+              remote_file="$(ssh "$SSH_USER@$SSH_HOST" "ls -1t '$DEPLOY_PATH'/artifacts/backups/postgres/postgres-*.sql 2>/dev/null | head -n 1" || true)"
+              if [ -n "$remote_file" ]; then
+                scp "$SSH_USER@$SSH_HOST:$remote_file" "./artifacts/ops/$OPS_TARGET/" || true
+              fi
+              ;;
+            backup-mongo)
+              remote_file="$(ssh "$SSH_USER@$SSH_HOST" "ls -1t '$DEPLOY_PATH'/artifacts/backups/mongo/mongo-*.archive.gz 2>/dev/null | head -n 1" || true)"
+              if [ -n "$remote_file" ]; then
+                scp "$SSH_USER@$SSH_HOST:$remote_file" "./artifacts/ops/$OPS_TARGET/" || true
+              fi
+              ;;
+            rollback)
+              scp -r "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/artifacts/deploy-reports/$OPS_TARGET/." "./artifacts/ops/$OPS_TARGET/" || true
+              ;;
+            restore-drill)
+              scp -r "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/artifacts/restore-drill/." "./artifacts/ops/$OPS_TARGET/" || true
+              ;;
+            list-release-catalog)
+              true
+              ;;
+          esac
+          scp -r "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/artifacts/release-catalog/$OPS_TARGET/." "./artifacts/release-catalog/$OPS_TARGET/" || true
+          scp -r "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/artifacts/release-ledgers/$OPS_TARGET/." "./artifacts/release-ledgers/$OPS_TARGET/" || true
+
+      - name: Attest remote release ledgers
+        if: always()
+        env:
+          LEDGER_ATTESTATION_SIGNING_KEY: ${{ secrets.RELEASE_LEDGER_ATTESTATION_KEY }}
+          LEDGER_ATTESTATION_KEY_ID: ${{ vars.RELEASE_LEDGER_ATTESTATION_KEY_ID }}
+          LEDGER_ATTESTATION_REQUIRE_SIGNED: ${{ vars.RELEASE_LEDGER_ATTESTATION_REQUIRED || 'false' }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mkdir -p "./artifacts/release-ledgers/$OPS_TARGET"
+          for ledger in "./artifacts/release-ledgers/$OPS_TARGET"/release-ledger-*.json; do
+            case "$ledger" in
+              *.attestation.json) continue ;;
+            esac
+            ./scripts/attest-release-ledger.sh "$ledger" "${ledger%.json}.attestation.json"
+            ./scripts/verify-release-ledger-attestation.sh "$ledger" "${ledger%.json}.attestation.json"
+          done
+
+      - name: Build remote release evidence summary
+        if: always() && (env.OPS_OPERATION == 'rollback' || env.OPS_OPERATION == 'restore-drill' || env.OPS_OPERATION == 'list-release-catalog')
+        run: |
+          set -euo pipefail
+          mkdir -p "./artifacts/release-evidence/$OPS_TARGET"
+          ./scripts/collect-release-evidence.sh \
+            "$OPS_TARGET" \
+            "./artifacts/release-catalog/$OPS_TARGET/catalog.json" \
+            "./artifacts/release-ledgers/$OPS_TARGET" \
+            "./artifacts/release-evidence/$OPS_TARGET"
+
+      - name: Export remote release evidence to audit target
+        if: always() && (env.OPS_OPERATION == 'rollback' || env.OPS_OPERATION == 'restore-drill' || env.OPS_OPERATION == 'list-release-catalog') && vars.RELEASE_EVIDENCE_AUDIT_TARGET != ''
+        env:
+          RELEASE_EVIDENCE_AUDIT_TARGET: ${{ vars.RELEASE_EVIDENCE_AUDIT_TARGET }}
+          RELEASE_EVIDENCE_AWS_REGION: ${{ vars.RELEASE_EVIDENCE_AWS_REGION }}
+          RELEASE_EVIDENCE_AWS_ENDPOINT_URL: ${{ vars.RELEASE_EVIDENCE_AWS_ENDPOINT_URL }}
+        run: |
+          set -euo pipefail
+          ./scripts/export-release-evidence.sh \
+            "$OPS_TARGET" \
+            "./artifacts/release-catalog/$OPS_TARGET" \
+            "./artifacts/release-ledgers/$OPS_TARGET" \
+            "./artifacts/release-evidence/$OPS_TARGET" \
+            "$RELEASE_EVIDENCE_AUDIT_TARGET"
+
+      - name: Verify remote operation artifacts
+        if: always()
+        run: |
+          set -euo pipefail
+          case "$OPS_OPERATION" in
+            rollback)
+              test -n "$(find ./artifacts/ops/$OPS_TARGET -name 'archive-manifest-*.txt' -print -quit)" || {
+                echo "rollback archive manifest missing" >&2
+                exit 1
+              }
+              test -n "$(find ./artifacts/ops/$OPS_TARGET -name 'deploy-manifest-*.txt' -print -quit)" || {
+                echo "rollback deploy manifest missing" >&2
+                exit 1
+              }
+              ;;
+            restore-drill)
+              test -n "$(find ./artifacts/ops/$OPS_TARGET -name 'archive-manifest-*.txt' -print -quit)" || {
+                echo "restore drill archive manifest missing" >&2
+                exit 1
+              }
+              test -n "$(find ./artifacts/ops/$OPS_TARGET -name 'fixture-verification-*.json' -print -quit)" || {
+                echo "restore drill fixture verification missing" >&2
+                exit 1
+              }
+              ;;
+            list-release-catalog)
+              test -f "./artifacts/release-catalog/$OPS_TARGET/catalog.json" || {
+                echo "release catalog missing" >&2
+                exit 1
+              }
+              ;;
+          esac
+          if { [ "$OPS_OPERATION" = "rollback" ] || [ "$OPS_OPERATION" = "restore-drill" ] || [ "$OPS_OPERATION" = "list-release-catalog" ]; }; then
+            test -f "./artifacts/release-catalog/$OPS_TARGET/catalog.json" || {
+              echo "release catalog missing" >&2
+              exit 1
+            }
+            test -f "./artifacts/release-evidence/$OPS_TARGET/release-evidence-summary.json" || {
+              echo "release evidence summary missing" >&2
+              exit 1
+            }
+          fi
+
+      - name: Upload remote operation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: single-host-ops-${{ env.OPS_TARGET }}-${{ env.OPS_OPERATION }}-${{ github.run_id }}
+          path: |
+            artifacts/ops
+            artifacts/release-catalog
+            artifacts/release-ledgers
+            artifacts/release-evidence
+          if-no-files-found: warn

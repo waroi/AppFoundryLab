@@ -1,0 +1,458 @@
+name: AppFoundryLab CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  doc-drift:
+    name: Documentation Drift Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run doc drift check
+        run: ./scripts/check-doc-drift.sh --mode strict
+
+  script-quality-gate:
+    name: Script Quality Gate (CI fast)
+    runs-on: ubuntu-latest
+    needs: doc-drift
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.9"
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: bun install
+
+      - name: Run script quality gate
+        run: ./scripts/quality-gate.sh ci-fast
+
+  release-gate-fast:
+    name: Release Gate (fast)
+    runs-on: ubuntu-latest
+    needs: script-quality-gate
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run release gate (fast) with JSON report
+        run: |
+          mkdir -p ./artifacts/release-gate
+          ./scripts/release-gate.sh fast --json ./artifacts/release-gate/release-gate-fast.json
+
+      - name: Parse release gate report
+        id: release-gate-parse
+        run: |
+          python3 ./scripts/parse-release-gate-json.py \
+            --input ./artifacts/release-gate/release-gate-fast.json \
+            --summary-md ./artifacts/release-gate/release-gate-fast-summary.md \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Publish release gate summary
+        run: cat ./artifacts/release-gate/release-gate-fast-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload release gate artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-fast
+          path: |
+            artifacts/release-gate/release-gate-fast.json
+            artifacts/release-gate/release-gate-fast-summary.md
+          if-no-files-found: error
+
+  go-check:
+    name: Go Gateway + Logger
+    runs-on: ubuntu-latest
+    needs: release-gate-fast
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+
+      - name: Download deps
+        run: go mod tidy
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./...
+
+  rust-check:
+    name: Rust gRPC Worker
+    runs-on: ubuntu-latest
+    needs: release-gate-fast
+    defaults:
+      run:
+        working-directory: backend/core/calculator
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt -- --check
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Test
+        run: cargo test
+
+  frontend-check:
+    name: Frontend Astro + Svelte
+    runs-on: ubuntu-latest
+    needs: release-gate-fast
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.9"
+
+      - name: Install deps
+        run: bun install
+
+      - name: Bootstrap Playwright runtime
+        working-directory: .
+        run: ./scripts/bootstrap-playwright-linux.sh --mode system --frontend-dir ./frontend
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Type check
+        run: bun run check
+
+      - name: Build
+        run: bun run build
+
+      - name: Smoke
+        run: bun run smoke
+
+      - name: Browser E2E
+        run: bun run e2e
+
+  frontend-api-contract-matrix:
+    name: Frontend API Contract Smoke (${{ matrix.profile }})
+    runs-on: ubuntu-latest
+    needs: script-quality-gate
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [minimal, standard, secure]
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.9"
+
+      - name: Install frontend deps
+        run: bun install
+
+      - name: Build frontend
+        run: bun run build
+
+      - name: Apply runtime profile to docker env
+        working-directory: .
+        run: |
+          cp .env.docker .env.docker.base
+          cat "presets/${{ matrix.profile }}.env" >> .env.docker
+
+      - name: Generate dev certs
+        working-directory: .
+        run: ./scripts/certs-dev.sh
+
+      - name: Start stack
+        working-directory: .
+        run: docker compose --env-file .env.docker up --build -d
+
+      - name: Wait for API readiness
+        working-directory: .
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8080/health/live >/dev/null; then
+              echo "api-gateway is live for profile=${{ matrix.profile }}"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "api-gateway did not become live in time for profile=${{ matrix.profile }}" >&2
+          docker compose --env-file .env.docker ps
+          exit 1
+
+      - name: Run frontend smoke with API contract
+        env:
+          SMOKE_API_BASE_URL: http://127.0.0.1:8080
+          SMOKE_API_USERNAME: developer
+          SMOKE_API_PASSWORD: developer_dev_password
+        run: bun run smoke
+
+      - name: Print compose logs on failure
+        if: failure()
+        working-directory: .
+        run: docker compose --env-file .env.docker logs --tail=200
+
+      - name: Stop stack
+        if: always()
+        working-directory: .
+        run: |
+          docker compose --env-file .env.docker down -v
+          if [ -f .env.docker.base ]; then mv .env.docker.base .env.docker; fi
+
+  security-scan:
+    name: Security Scans
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trivy Filesystem Scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
+      - name: Gitleaks Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sbom:
+    name: SBOM Generation
+    runs-on: ubuntu-latest
+    needs: release-gate-fast
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Generate SBOM (CycloneDX + SPDX)
+        run: ./scripts/gen-sbom.sh ./artifacts/sbom
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            artifacts/sbom/sbom-cyclonedx.json
+            artifacts/sbom/sbom-spdx.json
+          if-no-files-found: error
+
+  perf-benchmark:
+    name: Perf Benchmark (k6 smoke)
+    runs-on: ubuntu-latest
+    needs: release-gate-fast
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate dev certs
+        run: ./scripts/certs-dev.sh
+
+      - name: Start stack
+        run: docker compose --env-file .env.docker up --build -d
+
+      - name: Wait for API readiness
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8080/health/live >/dev/null; then
+              echo "api-gateway is live"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "api-gateway did not become live in time" >&2
+          docker compose --env-file .env.docker ps
+          exit 1
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 smoke benchmark
+        run: ./scripts/run-k6-smoke.sh ./artifacts/perf
+
+      - name: Prepare base k6 summary (PR)
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          if git show "origin/${{ github.base_ref }}:scripts/perf/baseline/k6-summary.json" > ./artifacts/perf/k6-summary-base.json; then
+            echo "base k6 summary loaded from origin/${{ github.base_ref }}"
+          else
+            echo "base k6 summary not found on base branch, falling back to repository baseline"
+            cp ./scripts/perf/baseline/k6-summary.json ./artifacts/perf/k6-summary-base.json
+          fi
+
+      - name: Compare k6 summary vs base (PR)
+        if: github.event_name == 'pull_request'
+        run: |
+          python3 ./scripts/perf/compare_k6_summary.py \
+            --base ./artifacts/perf/k6-summary-base.json \
+            --current ./artifacts/perf/k6-summary.json \
+            --out-json ./artifacts/perf/k6-summary-diff.json \
+            --out-md ./artifacts/perf/k6-summary-diff.md
+
+      - name: Publish k6 trend summary (PR)
+        if: github.event_name == 'pull_request'
+        run: cat ./artifacts/perf/k6-summary-diff.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload perf artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-k6
+          path: |
+            artifacts/perf/k6-summary.json
+            artifacts/perf/k6-summary-base.json
+            artifacts/perf/k6-summary-diff.json
+            artifacts/perf/k6-summary-diff.md
+          if-no-files-found: error
+
+      - name: Print compose logs on failure
+        if: failure()
+        run: docker compose --env-file .env.docker logs --tail=200
+
+      - name: Stop stack
+        if: always()
+        run: docker compose --env-file .env.docker down -v
+
+  profile-capacity-matrix:
+    name: Profile Capacity Matrix (${{ matrix.profile }})
+    runs-on: ubuntu-latest
+    needs: release-gate-fast
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [minimal, standard, secure]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run profile capacity check
+        run: |
+          mkdir -p ./artifacts/capacity
+          ./scripts/check-profile-capacity.sh \
+            "${{ matrix.profile }}" \
+            "./artifacts/capacity/profile-capacity-${{ matrix.profile }}.md"
+
+      - name: Publish profile capacity summary
+        run: cat "./artifacts/capacity/profile-capacity-${{ matrix.profile }}.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload profile capacity artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: profile-capacity-${{ matrix.profile }}
+          path: artifacts/capacity/profile-capacity-${{ matrix.profile }}.md
+          if-no-files-found: error
+
+  boilerplate-quality-report:
+    name: Boilerplate Quality Report
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - doc-drift
+      - release-gate-fast
+      - go-check
+      - rust-check
+      - frontend-check
+      - security-scan
+      - sbom
+      - perf-benchmark
+      - profile-capacity-matrix
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate quality report
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+        run: |
+          mkdir -p ./artifacts/quality
+          python3 ./scripts/generate-quality-report.py \
+            --readme ./README.md \
+            --plan ./docs/gelistirmePlanı.md \
+            --out-md ./artifacts/quality/boilerplate-quality-report.md \
+            --out-json ./artifacts/quality/boilerplate-quality-report.json \
+            --workflow-name "AppFoundryLab CI" \
+            --needs-json "$NEEDS_JSON" \
+            --governance-checklist ./docs/release-checklist.json \
+            --governance-doc ./docs/release-policy.md \
+            --governance-doc ./docs/delivery-workflow-governance-matrix.md \
+            --governance-doc ./docs/nightly-workflow-governance-matrix.md \
+            --governance-doc ./docs/branch-protection-required-checks.md
+
+      - name: Publish quality report summary
+        run: cat ./artifacts/quality/boilerplate-quality-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload quality report artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: boilerplate-quality-report
+          path: |
+            artifacts/quality/boilerplate-quality-report.md
+            artifacts/quality/boilerplate-quality-report.json
+          if-no-files-found: error

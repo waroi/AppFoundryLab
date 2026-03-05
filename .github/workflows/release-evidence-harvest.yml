@@ -1,0 +1,111 @@
+name: Release Evidence Harvest
+
+on:
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: Which environments to harvest.
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - staging
+          - production
+      run_staging_restore_drill:
+        description: Also run a staging restore drill before harvesting.
+        required: false
+        default: false
+        type: boolean
+      release_selector:
+        description: Catalog selector for the optional staging restore drill.
+        required: false
+        default: latest
+        type: string
+  schedule:
+    - cron: "45 2 * * *"
+    - cron: "15 3 * * 1"
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  resolve:
+    name: Resolve evidence harvest plan
+    runs-on: ubuntu-latest
+    outputs:
+      include_staging: ${{ steps.flags.outputs.include_staging }}
+      include_production: ${{ steps.flags.outputs.include_production }}
+      run_staging_restore_drill: ${{ steps.flags.outputs.run_staging_restore_drill }}
+      release_selector: ${{ steps.flags.outputs.release_selector }}
+    steps:
+      - id: flags
+        env:
+          INPUT_TARGETS: ${{ github.event.inputs.targets }}
+          INPUT_RUN_STAGING_RESTORE_DRILL: ${{ github.event.inputs.run_staging_restore_drill }}
+          INPUT_RELEASE_SELECTOR: ${{ github.event.inputs.release_selector }}
+        run: |
+          set -euo pipefail
+          targets="${INPUT_TARGETS:-all}"
+          run_restore="${INPUT_RUN_STAGING_RESTORE_DRILL:-false}"
+          release_selector="${INPUT_RELEASE_SELECTOR:-latest}"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            targets="all"
+            if [ "${{ github.event.schedule }}" = "15 3 * * 1" ]; then
+              run_restore="true"
+            fi
+          fi
+          case "$targets" in
+            all)
+              echo "include_staging=true" >> "$GITHUB_OUTPUT"
+              echo "include_production=true" >> "$GITHUB_OUTPUT"
+              ;;
+            staging)
+              echo "include_staging=true" >> "$GITHUB_OUTPUT"
+              echo "include_production=false" >> "$GITHUB_OUTPUT"
+              ;;
+            production)
+              echo "include_staging=false" >> "$GITHUB_OUTPUT"
+              echo "include_production=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "unsupported targets input: $targets" >&2
+              exit 1
+              ;;
+          esac
+          echo "run_staging_restore_drill=$run_restore" >> "$GITHUB_OUTPUT"
+          echo "release_selector=$release_selector" >> "$GITHUB_OUTPUT"
+
+  staging-restore-drill:
+    name: Scheduled staging restore drill
+    needs: resolve
+    if: needs.resolve.outputs.include_staging == 'true' && needs.resolve.outputs.run_staging_restore_drill == 'true'
+    uses: ./.github/workflows/single-host-ops.yml
+    with:
+      target: staging
+      operation: restore-drill
+      release_selector: ${{ needs.resolve.outputs.release_selector }}
+    secrets: inherit
+
+  staging-catalog:
+    name: Harvest staging release evidence
+    needs:
+      - resolve
+      - staging-restore-drill
+    if: always() && needs.resolve.outputs.include_staging == 'true' && (needs.staging-restore-drill.result == 'success' || needs.staging-restore-drill.result == 'skipped')
+    uses: ./.github/workflows/single-host-ops.yml
+    with:
+      target: staging
+      operation: list-release-catalog
+    secrets: inherit
+
+  production-catalog:
+    name: Harvest production release evidence
+    needs: resolve
+    if: needs.resolve.outputs.include_production == 'true'
+    uses: ./.github/workflows/single-host-ops.yml
+    with:
+      target: production
+      operation: list-release-catalog
+    secrets: inherit

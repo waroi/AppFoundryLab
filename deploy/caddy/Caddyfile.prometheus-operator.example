@@ -1,0 +1,16 @@
+{
+	email ops@example.com
+}
+
+# Optional operator-facing Prometheus route.
+# Keep this behind a VPN or private ingress, and require separate auth.
+# The compose overlay in deploy/docker-compose.observability.operator.yml
+# already expects a hashed password through PROMETHEUS_OPERATOR_PASSWORD_HASH.
+
+metrics.ops.example.com {
+	encode zstd gzip
+	basic_auth {
+		ops {$PROMETHEUS_OPERATOR_PASSWORD_HASH}
+	}
+	reverse_proxy 127.0.0.1:9443
+}

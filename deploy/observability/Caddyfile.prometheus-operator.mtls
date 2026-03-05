@@ -1,0 +1,16 @@
+{
+	auto_https off
+	admin off
+}
+
+:9443 {
+	tls {$PROMETHEUS_OPERATOR_TLS_CERT_FILE} {$PROMETHEUS_OPERATOR_TLS_KEY_FILE} {
+		client_auth {
+			mode require_and_verify
+			trust_pool file {$PROMETHEUS_OPERATOR_CLIENT_CA_FILE}
+		}
+	}
+
+	reverse_proxy prometheus:9090
+	header -Server
+}

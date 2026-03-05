@@ -1,0 +1,13 @@
+---
+import TestPage from "@/components/Page/TestPage.astro";
+import { NON_DEFAULT_LOCALES } from "@/lib/ui/routes";
+import type { Locale } from "@/lib/ui/preferences";
+
+export function getStaticPaths() {
+  return NON_DEFAULT_LOCALES.map((locale) => ({ params: { locale } }));
+}
+
+const locale = Astro.params.locale as Locale;
+---
+
+<TestPage locale={locale} />

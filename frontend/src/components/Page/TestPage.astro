@@ -1,0 +1,17 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import RestoreDrillArtifactPreview from "@/components/Interactive/RestoreDrillArtifactPreview.svelte";
+import TestTemplateIntro from "@/components/Static/TestTemplateIntro.svelte";
+import type { Locale } from "@/lib/ui/preferences";
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+---
+
+<BaseLayout pageTitleKey="test" locale={locale}>
+  <TestTemplateIntro client:load initialLocale={locale} />
+  <RestoreDrillArtifactPreview client:load initialLocale={locale} />
+</BaseLayout>

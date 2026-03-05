@@ -1,0 +1,17 @@
+---
+import SystemStatus from "@/components/Interactive/SystemStatus.svelte";
+import Hero from "@/components/Static/Hero.svelte";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import type { Locale } from "@/lib/ui/preferences";
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+---
+
+<BaseLayout pageTitleKey="home" locale={locale}>
+  <Hero client:load initialLocale={locale} />
+  <SystemStatus client:load initialLocale={locale} />
+</BaseLayout>

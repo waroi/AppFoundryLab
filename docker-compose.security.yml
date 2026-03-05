@@ -1,0 +1,42 @@
+services:
+  postgres:
+    ports: []
+    networks:
+      - backend_internal
+
+  redis:
+    ports: []
+    networks:
+      - backend_internal
+
+  mongo:
+    ports: []
+    networks:
+      - backend_internal
+
+  logger:
+    networks:
+      - backend_internal
+      - edge
+
+  calculator:
+    ports: []
+    networks:
+      - backend_internal
+
+  api-gateway:
+    networks:
+      - backend_internal
+      - edge
+
+  frontend:
+    networks:
+      - backend_internal
+      - edge
+
+networks:
+  edge:
+    driver: bridge
+  backend_internal:
+    driver: bridge
+    internal: true

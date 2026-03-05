@@ -1,0 +1,292 @@
+name: Publish GHCR Images
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    name: Build and publish pinned images
+    runs-on: ubuntu-latest
+    outputs:
+      api_gateway_image: ${{ steps.manifest.outputs.api_gateway_image }}
+      logger_image: ${{ steps.manifest.outputs.logger_image }}
+      calculator_image: ${{ steps.manifest.outputs.calculator_image }}
+      frontend_image: ${{ steps.manifest.outputs.frontend_image }}
+      release_manifest: ${{ steps.manifest.outputs.release_manifest }}
+      release_id: ${{ steps.manifest.outputs.release_id }}
+      release_source_sha: ${{ steps.manifest.outputs.release_source_sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set image names
+        run: |
+          echo "API_GATEWAY_IMAGE_NAME=ghcr.io/${{ github.repository }}/api-gateway" >> "$GITHUB_ENV"
+          echo "LOGGER_IMAGE_NAME=ghcr.io/${{ github.repository }}/logger" >> "$GITHUB_ENV"
+          echo "CALCULATOR_IMAGE_NAME=ghcr.io/${{ github.repository }}/calculator" >> "$GITHUB_ENV"
+          echo "FRONTEND_IMAGE_NAME=ghcr.io/${{ github.repository }}/frontend" >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push api-gateway
+        id: api
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/services/api-gateway/Dockerfile
+          push: true
+          tags: ${{ env.API_GATEWAY_IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Build and push logger
+        id: logger
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/services/logger/Dockerfile
+          push: true
+          tags: ${{ env.LOGGER_IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Build and push calculator
+        id: calculator
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/core/calculator/Dockerfile
+          push: true
+          tags: ${{ env.CALCULATOR_IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Build and push frontend
+        id: frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile.prod
+          push: true
+          build-args: |
+            PUBLIC_API_RETRY_MAX_ATTEMPTS=2
+            PUBLIC_API_RETRY_BASE_DELAY_MS=200
+            PUBLIC_API_CIRCUIT_FAILURE_THRESHOLD=5
+            PUBLIC_API_CIRCUIT_COOLDOWN_MS=15000
+          tags: ${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Write release manifest
+        id: manifest
+        run: |
+          set -euo pipefail
+          mkdir -p ./artifacts/ghcr
+          release_id="release-${GITHUB_RUN_ID}-${GITHUB_SHA::12}"
+          release_created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          cat > ./artifacts/ghcr/release-manifest.env <<EOF
+          RELEASE_ID=$release_id
+          RELEASE_CREATED_AT=$release_created_at
+          RELEASE_SOURCE_SHA=${GITHUB_SHA}
+          PROMOTION_SOURCE_RUN_ID=${GITHUB_RUN_ID}
+          API_GATEWAY_IMAGE=${API_GATEWAY_IMAGE_NAME}@${{ steps.api.outputs.digest }}
+          LOGGER_IMAGE=${LOGGER_IMAGE_NAME}@${{ steps.logger.outputs.digest }}
+          CALCULATOR_IMAGE=${CALCULATOR_IMAGE_NAME}@${{ steps.calculator.outputs.digest }}
+          FRONTEND_IMAGE=${FRONTEND_IMAGE_NAME}@${{ steps.frontend.outputs.digest }}
+          EOF
+          cat > ./artifacts/ghcr/release-manifest.json <<EOF
+          {
+            "releaseId": "$release_id",
+            "createdAt": "$release_created_at",
+            "sourceSha": "${GITHUB_SHA}",
+            "sourceRunId": "${GITHUB_RUN_ID}",
+            "images": {
+              "apiGateway": "${API_GATEWAY_IMAGE_NAME}@${{ steps.api.outputs.digest }}",
+              "logger": "${LOGGER_IMAGE_NAME}@${{ steps.logger.outputs.digest }}",
+              "calculator": "${CALCULATOR_IMAGE_NAME}@${{ steps.calculator.outputs.digest }}",
+              "frontend": "${FRONTEND_IMAGE_NAME}@${{ steps.frontend.outputs.digest }}"
+            }
+          }
+          EOF
+          {
+            echo "api_gateway_image=${API_GATEWAY_IMAGE_NAME}@${{ steps.api.outputs.digest }}"
+            echo "logger_image=${LOGGER_IMAGE_NAME}@${{ steps.logger.outputs.digest }}"
+            echo "calculator_image=${CALCULATOR_IMAGE_NAME}@${{ steps.calculator.outputs.digest }}"
+            echo "frontend_image=${FRONTEND_IMAGE_NAME}@${{ steps.frontend.outputs.digest }}"
+            echo "release_id=$release_id"
+            echo "release_source_sha=${GITHUB_SHA}"
+            printf 'release_manifest<<EOF\n%s\nEOF\n' "$(cat ./artifacts/ghcr/release-manifest.env)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build release ledger
+        run: |
+          set -euo pipefail
+          mkdir -p ./artifacts/release-catalog/global ./artifacts/release-ledgers/global
+          release_id="$(awk -F= '$1 == "RELEASE_ID" { print substr($0, index($0, "=") + 1) }' ./artifacts/ghcr/release-manifest.env)"
+          ./scripts/release-catalog.sh sync-manifest ./artifacts/release-catalog/global/catalog.json global ./artifacts/ghcr/release-manifest.env
+          GITHUB_RUN_ID="$GITHUB_RUN_ID" ./scripts/release-catalog.sh record-operation ./artifacts/release-catalog/global/catalog.json global "$release_id" publish ./artifacts/ghcr
+          ./scripts/release-catalog.sh export-ledger ./artifacts/release-catalog/global/catalog.json "$release_id" ./artifacts/release-ledgers/global/release-ledger-"$release_id".json
+
+      - name: Attest global release ledgers
+        env:
+          LEDGER_ATTESTATION_SIGNING_KEY: ${{ secrets.RELEASE_LEDGER_ATTESTATION_KEY }}
+          LEDGER_ATTESTATION_KEY_ID: ${{ vars.RELEASE_LEDGER_ATTESTATION_KEY_ID }}
+          LEDGER_ATTESTATION_REQUIRE_SIGNED: ${{ vars.RELEASE_LEDGER_ATTESTATION_REQUIRED || 'false' }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for ledger in ./artifacts/release-ledgers/global/release-ledger-*.json; do
+            case "$ledger" in
+              *.attestation.json) continue ;;
+            esac
+            ./scripts/attest-release-ledger.sh "$ledger" "${ledger%.json}.attestation.json"
+            ./scripts/verify-release-ledger-attestation.sh "$ledger" "${ledger%.json}.attestation.json"
+          done
+
+      - name: Build global release evidence summary
+        run: |
+          set -euo pipefail
+          mkdir -p ./artifacts/release-evidence/global
+          ./scripts/collect-release-evidence.sh \
+            global \
+            ./artifacts/release-catalog/global/catalog.json \
+            ./artifacts/release-ledgers/global \
+            ./artifacts/release-evidence/global
+
+      - name: Export global release evidence to audit target
+        if: vars.RELEASE_EVIDENCE_AUDIT_TARGET != ''
+        env:
+          RELEASE_EVIDENCE_AUDIT_TARGET: ${{ vars.RELEASE_EVIDENCE_AUDIT_TARGET }}
+          RELEASE_EVIDENCE_AWS_REGION: ${{ vars.RELEASE_EVIDENCE_AWS_REGION }}
+          RELEASE_EVIDENCE_AWS_ENDPOINT_URL: ${{ vars.RELEASE_EVIDENCE_AWS_ENDPOINT_URL }}
+        run: |
+          set -euo pipefail
+          ./scripts/export-release-evidence.sh \
+            global \
+            ./artifacts/release-catalog/global \
+            ./artifacts/release-ledgers/global \
+            ./artifacts/release-evidence/global \
+            "$RELEASE_EVIDENCE_AUDIT_TARGET"
+
+      - name: Upload release manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghcr-release-manifest
+          path: |
+            artifacts/ghcr/release-manifest.env
+            artifacts/ghcr/release-manifest.json
+            artifacts/release-catalog/global
+            artifacts/release-ledgers/global
+            artifacts/release-evidence/global
+          if-no-files-found: error
+
+  validate:
+    name: Validate image-mode single-host deploy
+    runs-on: ubuntu-latest
+    needs: publish
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare validation env
+        run: |
+          cp .env.docker .env.image-validate
+          {
+            echo "API_GATEWAY_IMAGE=${{ needs.publish.outputs.api_gateway_image }}"
+            echo "LOGGER_IMAGE=${{ needs.publish.outputs.logger_image }}"
+            echo "CALCULATOR_IMAGE=${{ needs.publish.outputs.calculator_image }}"
+            echo "FRONTEND_IMAGE=${{ needs.publish.outputs.frontend_image }}"
+            echo "ENABLE_OBSERVABILITY_STACK=true"
+          } >> .env.image-validate
+
+      - name: Run image-mode smoke deploy
+        env:
+          DEPLOY_MODE: image
+          DEPLOY_ADMIN_USER: admin
+          DEPLOY_ADMIN_PASSWORD: admin_dev_password
+          DEPLOY_API_BASE_URL: http://127.0.0.1:8080
+          DEPLOY_REPORT_DIR: ./artifacts/ghcr-validation
+        run: ./scripts/deploy-single-host.sh up ./.env.image-validate
+
+      - name: Tear down image-mode smoke deploy
+        if: always()
+        env:
+          DEPLOY_MODE: image
+        run: ./scripts/deploy-single-host.sh down ./.env.image-validate
+
+      - name: Upload validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghcr-image-validation
+          path: artifacts/ghcr-validation
+          if-no-files-found: warn
+
+  promote-staging:
+    name: Promote manifest to staging
+    needs:
+      - publish
+      - validate
+    uses: ./.github/workflows/deploy-single-host-staging.yml
+    with:
+      deploy_mode: image
+      release_manifest: ${{ needs.publish.outputs.release_manifest }}
+      promotion_run_id: ${{ github.run_id }}
+      release_id: ${{ needs.publish.outputs.release_id }}
+      release_source_sha: ${{ needs.publish.outputs.release_source_sha }}
+    secrets: inherit
+
+  rehearse-staging-rollback:
+    name: Exercise manifest rollback path on staging
+    needs:
+      - publish
+      - promote-staging
+    uses: ./.github/workflows/single-host-ops.yml
+    with:
+      target: staging
+      operation: rollback
+      release_manifest: ${{ needs.publish.outputs.release_manifest }}
+      promotion_run_id: ${{ github.run_id }}
+      release_id: ${{ needs.publish.outputs.release_id }}
+      release_source_sha: ${{ needs.publish.outputs.release_source_sha }}
+    secrets: inherit
+
+  rehearse-staging-restore-drill:
+    name: Run image-mode restore drill on staging
+    needs:
+      - publish
+      - rehearse-staging-rollback
+    uses: ./.github/workflows/single-host-ops.yml
+    with:
+      target: staging
+      operation: restore-drill
+      release_manifest: ${{ needs.publish.outputs.release_manifest }}
+      promotion_run_id: ${{ github.run_id }}
+      release_id: ${{ needs.publish.outputs.release_id }}
+      release_source_sha: ${{ needs.publish.outputs.release_source_sha }}
+    secrets: inherit
+
+  promote-production:
+    name: Promote manifest to production
+    needs:
+      - publish
+      - rehearse-staging-restore-drill
+    uses: ./.github/workflows/deploy-single-host-production.yml
+    with:
+      deploy_mode: image
+      release_manifest: ${{ needs.publish.outputs.release_manifest }}
+      promotion_run_id: ${{ github.run_id }}
+      release_id: ${{ needs.publish.outputs.release_id }}
+      release_source_sha: ${{ needs.publish.outputs.release_source_sha }}
+    secrets: inherit

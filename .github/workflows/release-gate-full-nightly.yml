@@ -1,0 +1,88 @@
+name: Release Gate Full Nightly
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  script-quality-gate-full:
+    name: Script Quality Gate (CI full)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.9"
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: bun install
+
+      - name: Run script quality gate
+        run: ./scripts/quality-gate.sh ci-full
+
+  release-gate-full-nightly:
+    name: Release Gate (full nightly)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: script-quality-gate-full
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.9"
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: bun install
+
+      - name: Run release gate (full) with JSON report
+        run: |
+          mkdir -p ./artifacts/release-gate
+          ./scripts/release-gate.sh full --json ./artifacts/release-gate/release-gate-full.json
+
+      - name: Parse release gate report
+        run: |
+          python3 ./scripts/parse-release-gate-json.py \
+            --input ./artifacts/release-gate/release-gate-full.json \
+            --summary-md ./artifacts/release-gate/release-gate-full-summary.md
+
+      - name: Publish release gate summary
+        run: cat ./artifacts/release-gate/release-gate-full-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload release gate artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-full-nightly
+          path: |
+            artifacts/release-gate/release-gate-full.json
+            artifacts/release-gate/release-gate-full-summary.md
+          if-no-files-found: error

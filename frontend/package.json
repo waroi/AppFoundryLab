@@ -1,0 +1,35 @@
+{
+  "name": "appfoundrylab-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev --host 0.0.0.0 --port 4321",
+    "build": "astro build",
+    "preview": "astro preview --host 0.0.0.0 --port 4321",
+    "smoke": "node scripts/smoke.mjs",
+    "e2e:bootstrap": "../scripts/bootstrap-playwright-linux.sh --frontend-dir .",
+    "e2e": "./scripts/run-playwright.sh",
+    "check": "astro check",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  },
+  "dependencies": {
+    "@astrojs/svelte": "^7.2.5",
+    "@astrojs/tailwind": "^6.0.0",
+    "astro": "^5.2.0",
+    "flowbite": "^2.5.2",
+    "flowbite-svelte": "^0.46.0",
+    "svelte": "^5.20.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.6",
+    "@biomejs/biome": "^1.9.4",
+    "@playwright/test": "^1.58.2",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.2",
+    "sass": "^1.85.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.2"
+  }
+}

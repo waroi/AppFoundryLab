@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "restore-drill-v2",
+  "marker": "restore-drill-sample",
+  "usersExpected": 3,
+  "usersFound": 3,
+  "requestLogsExpected": 2,
+  "requestLogsFound": 2,
+  "missingUsers": [],
+  "missingRequestLogs": [],
+  "status": "ok"
+}

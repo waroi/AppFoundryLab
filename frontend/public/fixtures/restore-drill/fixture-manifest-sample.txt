@@ -1,0 +1,6 @@
+fixture_marker=restore-drill-sample
+expected_file=fixture-expected-restore-drill-sample.json
+actual_file=fixture-actual-restore-drill-sample.json
+verification_file=fixture-verification-restore-drill-sample.json
+users_response=users-restore-drill-sample.json
+request_logs_dir=request-logs-restore-drill-sample
