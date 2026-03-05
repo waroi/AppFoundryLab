@@ -9,7 +9,7 @@
     "preview": "astro preview --host 0.0.0.0 --port 4321",
     "smoke": "node scripts/smoke.mjs",
     "e2e:bootstrap": "../scripts/bootstrap-playwright-linux.sh --frontend-dir .",
-    "e2e": "./scripts/run-playwright.sh",
+    "e2e": "playwright test",
     "check": "astro check",
     "lint": "biome check .",
     "format": "biome format --write .",

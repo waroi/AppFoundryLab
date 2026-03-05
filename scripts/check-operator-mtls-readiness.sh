@@ -43,11 +43,8 @@ done
 
 check_expiry() {
   local cert_path="$1"
-  local deadline
-  deadline="$(date -u -d "+${MIN_VALID_DAYS} days" +%s)"
-  local cert_epoch
-  cert_epoch="$(date -u -d "$(openssl x509 -enddate -noout -in "$cert_path" | cut -d= -f2-)" +%s)"
-  if (( cert_epoch < deadline )); then
+  local min_valid_seconds=$((MIN_VALID_DAYS * 24 * 60 * 60))
+  if ! openssl x509 -checkend "$min_valid_seconds" -noout -in "$cert_path" >/dev/null 2>&1; then
     echo "certificate expires too soon: $cert_path" >&2
     exit 1
   fi

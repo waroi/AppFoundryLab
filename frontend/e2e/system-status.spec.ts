@@ -22,9 +22,14 @@ test("admin trace lookup shows correlated request logs", async ({ page }) => {
   await page.getByTestId("incident-trace-trace-admin-a").click();
 
   await expect(page.getByTestId("trace-lookup-state")).toHaveAttribute("data-mode", "filtered");
-  await expect(page.getByTestId("trace-lookup-state")).toHaveAttribute("data-trace-id", "trace-admin-a");
+  await expect(page.getByTestId("trace-lookup-state")).toHaveAttribute(
+    "data-trace-id",
+    "trace-admin-a",
+  );
   await expect(page.getByTestId("request-log-row")).toHaveCount(1);
-  await expect(page.getByTestId("request-log-row").first()).toContainText("/api/v1/admin/request-logs");
+  await expect(page.getByTestId("request-log-row").first()).toContainText(
+    "/api/v1/admin/request-logs",
+  );
 
   await page.getByTestId("trace-query-input").fill("trace-login-a");
   await page.getByTestId("trace-search-button").click();

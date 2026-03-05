@@ -1,35 +1,35 @@
 <script lang="ts">
-import {
-  booleanLabel,
-  formatDateTime as formatLocalizedDateTime,
-  formatDurationMs,
-  formatPercent,
-  formatRole,
-  getCopy,
-  renderTemplate,
-  translateError,
-} from "@/lib/ui/copy";
+import { onMount } from "svelte";
 import { fetchTyped } from "@/lib/api/fetcher";
 import type {
   HealthResponse,
   RuntimeConfigResponse,
   RuntimeIncidentEventsResponse,
   RuntimeMetricsResponse,
-  RuntimeRequestLogRecord,
   RuntimeReportResponse,
+  RuntimeRequestLogRecord,
   UsersResponse,
 } from "@/lib/api/types";
 import {
   isFibonacciResponse,
   isHealthResponse,
   isRuntimeIncidentEventsResponse,
-  isRuntimeRequestLogsResponse,
   isRuntimeReportResponse,
+  isRuntimeRequestLogsResponse,
   isTokenResponse,
   isUsersResponse,
 } from "@/lib/api/validators";
-import { DEFAULT_LOCALE, locale, type Locale } from "@/lib/ui/preferences";
-import { onMount } from "svelte";
+import {
+  booleanLabel,
+  formatDurationMs,
+  formatDateTime as formatLocalizedDateTime,
+  formatPercent,
+  formatRole,
+  getCopy,
+  renderTemplate,
+  translateError,
+} from "@/lib/ui/copy";
+import { DEFAULT_LOCALE, type Locale, locale } from "@/lib/ui/preferences";
 export let initialLocale: Locale = DEFAULT_LOCALE;
 
 let health: HealthResponse | null = null;
@@ -95,7 +95,12 @@ async function loginAndLoad(): Promise<void> {
     if (auth.role === "admin") {
       const [usersData, runtimeReportPayload, incidentEventsPayload] = await Promise.all([
         usersPromise,
-        fetchTyped("/api/v1/admin/runtime-report", isRuntimeReportResponse, undefined, auth.accessToken),
+        fetchTyped(
+          "/api/v1/admin/runtime-report",
+          isRuntimeReportResponse,
+          undefined,
+          auth.accessToken,
+        ),
         fetchTyped(
           "/api/v1/admin/incident-events",
           isRuntimeIncidentEventsResponse,
@@ -168,7 +173,10 @@ async function useIncidentTrace(traceId: string): Promise<void> {
 }
 
 function availableTraceIds(): string[] {
-  return [...new Set(incidentEvents.map((event) => event.traceId).filter(Boolean))].slice(0, 6) as string[];
+  return [...new Set(incidentEvents.map((event) => event.traceId).filter(Boolean))].slice(
+    0,
+    6,
+  ) as string[];
 }
 
 function translateErrorMessage(value: string): string {
@@ -192,7 +200,10 @@ function requestStatusTone(statusCode: number): string {
   return "status-badge status-success";
 }
 
-function boolLabel(value: boolean, mode: "yesNo" | "enabledDisabled" | "onOff" | "requiredOptional"): string {
+function boolLabel(
+  value: boolean,
+  mode: "yesNo" | "enabledDisabled" | "onOff" | "requiredOptional",
+): string {
   return booleanLabel(activeLocale, value, mode);
 }
 

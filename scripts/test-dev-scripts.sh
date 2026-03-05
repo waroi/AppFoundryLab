@@ -132,7 +132,7 @@ test_dev_doctor_detects_missing_required_tools() {
   ln -s "$(command -v openssl)" "$fakebin/openssl"
   output="$(mktemp)"
 
-  if (cd "$fixture" && PATH="$fakebin" ./scripts/dev-doctor.sh >"$output" 2>&1); then
+  if (cd "$fixture" && PATH="$fakebin" DOCKER_BIN="__missing_docker__" ./scripts/dev-doctor.sh >"$output" 2>&1); then
     fail "dev-doctor should fail when docker is missing"
   fi
 

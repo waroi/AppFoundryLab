@@ -74,6 +74,7 @@ Core runbooks and governance:
 - [Operator Observability Runbook](docs/operator-observability-runbook.md)
 - [Release Policy](docs/release-policy.md)
 - [Gelistirme Plani](docs/gelistirmePlanı.md)
+- [Progress Plan](PROGRESS.md)
 
 ## Common Workflows
 
@@ -90,6 +91,7 @@ Frontend browser tests:
 ```bash
 cd frontend
 bun run e2e:bootstrap
+bunx playwright install chromium
 bun run e2e
 ```
 
@@ -120,4 +122,9 @@ multi_agent/    Orchestration rules and prompts
 
 - `.env` is ignored by git; use examples such as `.env.example` and `.env.docker.local`.
 - `.toolchain/` is local-only and intentionally ignored.
-- On WSL, if Linux `docker` is not available, set `DOCKER_BIN` to Docker Desktop's `docker.exe` path before running scripts.
+- Local scripts auto-resolve Docker Desktop `docker.exe` on WSL when the default `docker` CLI points to an unusable Podman shim; set `DOCKER_BIN` explicitly only if you need a custom binary.
+- Make sure Docker Engine is running before `./scripts/dev-up.sh`; otherwise compose startup will fail immediately.
+- Use `bun run e2e` for browser tests on Windows, and keep `./scripts/run-playwright.sh` as the Linux shell wrapper.
+- Local release evidence rehearsal command: `./scripts/rehearse-release-evidence-local.sh ./.env.docker.local ./artifacts/local-release-evidence`.
+- `./scripts/dev-up.sh` now validates Postgres and Mongo credentials against persisted volumes before reporting stack readiness; use `SKIP_DATA_CREDENTIAL_CHECK=true` only for temporary troubleshooting.
+- `./scripts/check-doc-drift.sh` supports `DOC_DRIFT_CHANGED_FILES` fallback when `git` is unavailable in strict shell environments.

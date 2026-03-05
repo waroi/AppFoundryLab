@@ -4,8 +4,8 @@ import type {
   RuntimeConfigResponse,
   RuntimeIncidentEventsResponse,
   RuntimeMetricsResponse,
-  RuntimeRequestLogsResponse,
   RuntimeReportResponse,
+  RuntimeRequestLogsResponse,
   TokenResponse,
   UsersResponse,
 } from "./types";

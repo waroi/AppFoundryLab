@@ -71,7 +71,8 @@ const copy = {
     },
     testPage: {
       title: "Test Template Page",
-      description: "Smoke-test surface for the running stack and the sample restore drill artifacts.",
+      description:
+        "Smoke-test surface for the running stack and the sample restore drill artifacts.",
     },
     restoreDrill: {
       title: "Restore Drill Artifact Preview",

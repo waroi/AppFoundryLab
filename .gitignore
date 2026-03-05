@@ -17,6 +17,9 @@ multi_agent/runtime/**
 frontend/bun.lockb
 backend/infrastructure/certs/dev/*
 !backend/infrastructure/certs/dev/.gitkeep
+artifacts/local-release-evidence/
+deploy/observability/operator-certs/*
+!deploy/observability/operator-certs/.gitkeep
 **/multi_agent/
 multi_agent/
 AGENTS.md

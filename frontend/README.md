@@ -39,8 +39,14 @@
 
 ```bash
 cd frontend
-./node_modules/.bin/astro check
-./node_modules/.bin/astro build
-node ./scripts/smoke.mjs
-./scripts/run-playwright.sh
+bun run check
+bun run build
+bun run smoke
+bun run test
+bunx playwright install chromium
+bun run e2e
 ```
+
+Linux CI veya Linux gelistirme ortami icin `bun run e2e:bootstrap` komutu Playwright bagimliliklarinin sistem seviyesinde hazirlanmasi icin kullanilir.
+
+Not: Biome lint konfigurasyonu su anda JS/TS odaklidir; Astro/Svelte dosyalari lint kapsamindan cikartilarak false-positive sinyaller azaltilmistir.

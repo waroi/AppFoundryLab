@@ -1,5 +1,5 @@
-import { DEFAULT_LOCALE, type Locale, normalizeLocale } from "@/lib/ui/preferences";
 import type { PageTitleKey } from "@/lib/ui/copy";
+import { DEFAULT_LOCALE, type Locale, normalizeLocale } from "@/lib/ui/preferences";
 
 export const NON_DEFAULT_LOCALES: Locale[] = ["tr"];
 
