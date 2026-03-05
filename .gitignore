@@ -17,8 +17,7 @@ multi_agent/runtime/**
 frontend/bun.lockb
 backend/infrastructure/certs/dev/*
 !backend/infrastructure/certs/dev/.gitkeep
-**/multi_agent/
-multi_agent/
-AGENTS.md
-**/skills/
-skills/
+**/.multi_agent/
+.multi_agent/
+**/.skills/
+.skills/

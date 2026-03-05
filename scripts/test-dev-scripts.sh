@@ -191,13 +191,8 @@ test_windows_docker_bin_translates_compose_paths() {
   fakebin="$(new_fakebin)"
   log_file="$fixture/docker-compose-windows.log"
   env_log_file="$fixture/docker-compose-windows-env.log"
-  if command -v wslpath >/dev/null 2>&1; then
-    expected_compose="$(wslpath -w "$fixture/docker-compose.yml")"
-    expected_env="$(wslpath -w "$fixture/.env.docker.local")"
-  else
-    expected_compose="$fixture/docker-compose.yml"
-    expected_env="$fixture/.env.docker.local"
-  fi
+  expected_compose="$(wslpath -w "$fixture/docker-compose.yml")"
+  expected_env="$(wslpath -w "$fixture/.env.docker.local")"
 
   cat > "$fakebin/docker.exe" <<EOF
 #!/usr/bin/env bash
@@ -208,9 +203,7 @@ for ((i = 0; i < \${#args[@]}; i++)); do
   if [[ "\${args[\$i]}" == "--env-file" ]]; then
     env_file_path="\${args[\$((i + 1))]}"
     if [[ "\$env_file_path" == *\\\\* ]]; then
-      if command -v wslpath >/dev/null 2>&1; then
-        env_file_path="\$(wslpath -u "\$env_file_path")"
-      fi
+      env_file_path="\$(wslpath -u "\$env_file_path")"
     fi
     cat "\$env_file_path" > "$env_log_file"
     break
@@ -250,15 +243,9 @@ test_dev_up_windows_docker_bin_uses_runtime_env_file_and_windows_curl() {
   env_log_file="$fixture/docker-compose-windows-dev-up.env"
   curl_exe_log="$fixture/dev-up-windows-curl.log"
   output_file="$fixture/dev-up-windows.out"
-  if command -v wslpath >/dev/null 2>&1; then
-    expected_compose="$(wslpath -w "$fixture/docker-compose.yml")"
-    expected_security="$(wslpath -w "$fixture/docker-compose.security.yml")"
-    expected_env="$(wslpath -w "$fixture/.env.docker.local")"
-  else
-    expected_compose="$fixture/docker-compose.yml"
-    expected_security="$fixture/docker-compose.security.yml"
-    expected_env="$fixture/.env.docker.local"
-  fi
+  expected_compose="$(wslpath -w "$fixture/docker-compose.yml")"
+  expected_security="$(wslpath -w "$fixture/docker-compose.security.yml")"
+  expected_env="$(wslpath -w "$fixture/.env.docker.local")"
 
   cat > "$fakebin/docker.exe" <<EOF
 #!/usr/bin/env bash
@@ -269,9 +256,7 @@ for ((i = 0; i < \${#args[@]}; i++)); do
   if [[ "\${args[\$i]}" == "--env-file" ]]; then
     env_file_path="\${args[\$((i + 1))]}"
     if [[ "\$env_file_path" == *\\\\* ]]; then
-      if command -v wslpath >/dev/null 2>&1; then
-        env_file_path="\$(wslpath -u "\$env_file_path")"
-      fi
+      env_file_path="\$(wslpath -u "\$env_file_path")"
     fi
     cat "\$env_file_path" > "$env_log_file"
     break
