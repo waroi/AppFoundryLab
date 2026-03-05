@@ -19,7 +19,7 @@
     "@astrojs/tailwind": "^6.0.0",
     "astro": "^5.2.0",
     "flowbite": "^2.5.2",
-    "flowbite-svelte": "^0.46.0",
+    "flowbite-svelte": "^1.31.0",
     "svelte": "^5.20.0"
   },
   "devDependencies": {
