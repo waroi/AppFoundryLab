@@ -21,7 +21,7 @@ jobs:
       release_source_sha: ${{ steps.manifest.outputs.release_source_sha }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Set image names
         run: |
@@ -173,7 +173,7 @@ jobs:
             "$RELEASE_EVIDENCE_AUDIT_TARGET"
 
       - name: Upload release manifest
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: ghcr-release-manifest
           path: |
@@ -190,7 +190,7 @@ jobs:
     needs: publish
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -227,7 +227,7 @@ jobs:
 
       - name: Upload validation artifacts
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: ghcr-image-validation
           path: artifacts/ghcr-validation

@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -24,12 +24,12 @@ jobs:
     needs: doc-drift
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v5
         with:
           go-version: "1.23.x"
 
@@ -54,7 +54,7 @@ jobs:
     needs: script-quality-gate
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -75,7 +75,7 @@ jobs:
         run: cat ./artifacts/release-gate/release-gate-fast-summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload release gate artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: release-gate-fast
           path: |
@@ -92,10 +92,10 @@ jobs:
         working-directory: backend
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v5
         with:
           go-version: "1.23.x"
 
@@ -120,7 +120,7 @@ jobs:
         working-directory: backend/core/calculator
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -146,7 +146,7 @@ jobs:
         working-directory: frontend
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -190,7 +190,7 @@ jobs:
         working-directory: frontend
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -258,7 +258,7 @@ jobs:
       security-events: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Trivy Filesystem Scan
         uses: aquasecurity/trivy-action@0.28.0
@@ -269,7 +269,7 @@ jobs:
           severity: CRITICAL,HIGH
 
       - name: Upload Trivy SARIF
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results.sarif
 
@@ -284,7 +284,7 @@ jobs:
     needs: release-gate-fast
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Install Syft
         run: |
@@ -294,7 +294,7 @@ jobs:
         run: ./scripts/gen-sbom.sh ./artifacts/sbom
 
       - name: Upload SBOM artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: sbom
           path: |
@@ -308,7 +308,7 @@ jobs:
     needs: release-gate-fast
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Generate dev certs
         run: ./scripts/certs-dev.sh
@@ -360,7 +360,7 @@ jobs:
         run: cat ./artifacts/perf/k6-summary-diff.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload perf artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: perf-k6
           path: |
@@ -390,7 +390,7 @@ jobs:
         profile: [minimal, standard, secure]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Run profile capacity check
         run: |
@@ -403,7 +403,7 @@ jobs:
         run: cat "./artifacts/capacity/profile-capacity-${{ matrix.profile }}.md" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload profile capacity artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: profile-capacity-${{ matrix.profile }}
           path: artifacts/capacity/profile-capacity-${{ matrix.profile }}.md
@@ -425,7 +425,7 @@ jobs:
       - profile-capacity-matrix
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Generate quality report
         env:
@@ -449,7 +449,7 @@ jobs:
         run: cat ./artifacts/quality/boilerplate-quality-report.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload quality report artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: boilerplate-quality-report
           path: |
