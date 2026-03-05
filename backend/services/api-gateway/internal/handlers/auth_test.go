@@ -49,3 +49,19 @@ func TestResolveRoleDisabledModeRejectsBootstrapAuth(t *testing.T) {
 		t.Fatalf("expected disabled mode to reject bootstrap auth, got ok=%v role=%s", ok, role)
 	}
 }
+
+func TestResolveRoleDisallowsDefaultPasswordsIfNotSet(t *testing.T) {
+	t.Setenv("LOCAL_AUTH_MODE", "demo")
+	t.Setenv("BOOTSTRAP_ADMIN_USER", "admin")
+	t.Setenv("BOOTSTRAP_USER", "developer")
+
+	role, ok := resolveRole("admin", "admin_dev_password")
+	if ok || role != "" {
+		t.Fatalf("expected admin default password to be rejected if not set explicitly, got ok=%v role=%s", ok, role)
+	}
+
+	role, ok = resolveRole("developer", "developer_dev_password")
+	if ok || role != "" {
+		t.Fatalf("expected developer default password to be rejected if not set explicitly, got ok=%v role=%s", ok, role)
+	}
+}

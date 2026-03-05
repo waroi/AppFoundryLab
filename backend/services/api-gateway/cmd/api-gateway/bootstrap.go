@@ -31,6 +31,12 @@ type appDependencies struct {
 func initDependencies(ctx context.Context, cfg runtimeConfig) (appDependencies, func(), error) {
 	deps := appDependencies{}
 	cleanup := func() {
+		if deps.pool != nil {
+			deps.pool.Close()
+		}
+		if deps.redisClient != nil {
+			_ = deps.redisClient.Close()
+		}
 		if deps.workerClient != nil {
 			_ = deps.workerClient.Close()
 		}
