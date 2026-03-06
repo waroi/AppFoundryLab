@@ -20,6 +20,7 @@ import (
 	"github.com/example/appfoundrylab/backend/pkg/env"
 	"github.com/example/appfoundrylab/backend/services/logger/internal/incidents"
 	"github.com/example/appfoundrylab/backend/services/logger/internal/ingest"
+	"github.com/example/appfoundrylab/backend/services/logger/internal/mongo"
 	"github.com/example/appfoundrylab/backend/services/logger/internal/queue"
 	"github.com/example/appfoundrylab/backend/services/logger/internal/requestlogs"
 	"github.com/go-chi/chi/v5"
@@ -39,8 +40,11 @@ func main() {
 	queueSize := env.GetIntWithDefault("LOGGER_QUEUE_SIZE", 2048)
 	workerCount := env.GetIntWithDefault("LOGGER_WORKERS", 4)
 	retryMax := env.GetIntWithDefault("LOGGER_RETRY_MAX", 1)
+	retryBackoffBase := env.GetIntWithDefault("LOGGER_RETRY_BACKOFF_BASE_MS", 100)
+	retryBackoffMax := env.GetIntWithDefault("LOGGER_RETRY_BACKOFF_MAX_MS", 1000)
 	dropAlertThresholdPct := float64(env.GetIntWithDefault("LOGGER_DROP_ALERT_THRESHOLD_PCT", 5))
 	q := queue.New(queueSize, workerCount, retryMax)
+	q.SetRetryBackoff(time.Duration(retryBackoffBase)*time.Millisecond, time.Duration(retryBackoffMax)*time.Millisecond)
 	q.SetDropAlertThresholdPct(dropAlertThresholdPct)
 	q.StartWorkers(ctx)
 
@@ -48,9 +52,11 @@ func main() {
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.Timeout(2 * time.Second))
 
-	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		httpStatus, payload := loggerHealthPayload(mongo.Health(r.Context()))
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"status":"ok"}`))
+		w.WriteHeader(httpStatus)
+		_ = json.NewEncoder(w).Encode(payload)
 	})
 	r.Get("/metrics", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -180,6 +186,21 @@ func main() {
 		log.Fatal(err)
 	}
 	q.Wait()
+}
+
+func loggerHealthPayload(err error) (int, map[string]any) {
+	payload := map[string]any{
+		"status": "ok",
+		"checks": map[string]string{"mongo": "up"},
+	}
+	if err == nil {
+		return http.StatusOK, payload
+	}
+
+	payload["status"] = "degraded"
+	payload["checks"] = map[string]string{"mongo": "down"}
+	payload["lastError"] = err.Error()
+	return http.StatusServiceUnavailable, payload
 }
 
 func verifyIngestAuth(r *http.Request, secret string, allowUnsignedIngest bool) error {

@@ -36,6 +36,8 @@ type AsyncQueue struct {
 	ch       chan ingest.RequestLog
 	workers  int
 	retryMax int
+	backoffBase time.Duration
+	backoffMax  time.Duration
 
 	wg sync.WaitGroup
 
@@ -61,10 +63,23 @@ func New(size, workers, retryMax int) *AsyncQueue {
 	}
 
 	return &AsyncQueue{
-		ch:       make(chan ingest.RequestLog, size),
-		workers:  workers,
-		retryMax: retryMax,
+		ch:          make(chan ingest.RequestLog, size),
+		workers:     workers,
+		retryMax:    retryMax,
+		backoffBase: 100 * time.Millisecond,
+		backoffMax:  time.Second,
 	}
+}
+
+func (q *AsyncQueue) SetRetryBackoff(base, max time.Duration) {
+	if base <= 0 {
+		base = 100 * time.Millisecond
+	}
+	if max <= 0 || max < base {
+		max = base
+	}
+	q.backoffBase = base
+	q.backoffMax = max
 }
 
 func (q *AsyncQueue) Enqueue(entry ingest.RequestLog) bool {
@@ -141,12 +156,30 @@ func (q *AsyncQueue) process(item ingest.RequestLog) {
 		lastErr = err
 		if attempt < q.retryMax {
 			q.retried.Add(1)
-			time.Sleep(time.Duration(attempt+1) * 100 * time.Millisecond)
+			time.Sleep(q.retryDelay(attempt))
 		}
 	}
 
 	q.failed.Add(1)
 	log.Printf("logger insert failed after retries: %v", lastErr)
+}
+
+func (q *AsyncQueue) retryDelay(attempt int) time.Duration {
+	if attempt <= 0 {
+		return q.backoffBase
+	}
+
+	delay := q.backoffBase
+	for i := 0; i < attempt; i++ {
+		if delay >= q.backoffMax {
+			return q.backoffMax
+		}
+		delay *= 2
+	}
+	if delay > q.backoffMax {
+		return q.backoffMax
+	}
+	return delay
 }
 
 func (q *AsyncQueue) Stats() Stats {

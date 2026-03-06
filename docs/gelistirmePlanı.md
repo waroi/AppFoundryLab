@@ -3,32 +3,22 @@
 Bu belge stratejik faz siralamasini tutar.
 Acik backlog'un kanonik kaynagi [PROGRESS.md](/mnt/d/w/AppFoundryLab/PROGRESS.md) dosyasidir.
 
-Sonraki aktif hedef: Faz 1 - Runtime ve Toolchain Sertlestirme
+Sonraki aktif hedef: Faz 1 - Admin Diagnostics Gorunurlugu
 
-## Faz 1 - Runtime ve Toolchain Sertlestirme
-
-Odak:
-- kullanilabilirlik sinyali ile process liveness sinyalini ayirmak
-- toolchain dogrulugunu repo gercegiyle hizalamak
-- dependency-backed route'lar icin net degrade/fail-fast davranisi tanimlamak
-
-## Faz 2 - Frontend Bakim ve Test Kapsami
+## Faz 1 - Admin Diagnostics Gorunurlugu
 
 Odak:
-- ana diagnostics yuzeyini daha kucuk parcali hale getirmek
-- auth/runtime hata durumlarini testlerle guvenceye almak
-- gorsel ve davranissal smoke kapsamını genisletmek
+- dependency policy matrix'ini yalnizca API ve runbook'ta degil, admin diagnostics UI'da da gorunur hale getirmek
+- operator'un `STRICT_DEPENDENCIES` ve dependency degradation kontratini tarayicidan okuyabilmesini saglamak
 
-## Faz 3 - Security ve Evidence Hijyeni
-
-Odak:
-- hassas artifact export'larini sinirlamak
-- signed attestation'i environment bazli zorunlu hale getirmek
-- operator akislari icin daha guvenli credential kullanimi saglamak
-
-## Faz 4 - Ortam Sahipli Kapanislar
+## Faz 2 - Governance Script Coverage
 
 Odak:
-- staging ve production signed evidence harvest
-- secret rotation sahipligi
-- canli ortam kanit toplama disiplinini runbook seviyesinde tamamlamak
+- `check-doc-drift.sh` icin fixture tabanli regresyon testleri eklemek
+- semantik doc truth kurallarini script seviyesinde daha guclu bir safety net'e cevirmek
+
+## Faz 3 - Host-Backed Release Confidence
+
+Odak:
+- `e2e:live` kosusunun nightly-only mi, merge-blocking mi, yoksa on-demand mi olacagini yazili policy'ye baglamak
+- secilen policy'yi workflow, quality gate ve dokuman seti boyunca tek bir kontrata indirmek

@@ -131,11 +131,26 @@ jobs:
           GITHUB_RUN_ID="$GITHUB_RUN_ID" ./scripts/release-catalog.sh record-operation ./artifacts/release-catalog/global/catalog.json global "$release_id" publish ./artifacts/ghcr
           ./scripts/release-catalog.sh export-ledger ./artifacts/release-catalog/global/catalog.json "$release_id" ./artifacts/release-ledgers/global/release-ledger-"$release_id".json
 
+      - name: Validate global release evidence requirements
+        env:
+          LEDGER_ATTESTATION_SIGNING_KEY: ${{ secrets.RELEASE_LEDGER_ATTESTATION_KEY }}
+          RELEASE_EVIDENCE_AUDIT_TARGET: ${{ vars.RELEASE_EVIDENCE_AUDIT_TARGET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${LEDGER_ATTESTATION_SIGNING_KEY:-}" ]; then
+            echo "missing required global attestation secret: RELEASE_LEDGER_ATTESTATION_KEY" >&2
+            exit 1
+          fi
+          if [ -z "${RELEASE_EVIDENCE_AUDIT_TARGET:-}" ]; then
+            echo "missing required global evidence export target: RELEASE_EVIDENCE_AUDIT_TARGET" >&2
+            exit 1
+          fi
+
       - name: Attest global release ledgers
         env:
           LEDGER_ATTESTATION_SIGNING_KEY: ${{ secrets.RELEASE_LEDGER_ATTESTATION_KEY }}
           LEDGER_ATTESTATION_KEY_ID: ${{ vars.RELEASE_LEDGER_ATTESTATION_KEY_ID }}
-          LEDGER_ATTESTATION_REQUIRE_SIGNED: ${{ vars.RELEASE_LEDGER_ATTESTATION_REQUIRED || 'false' }}
+          LEDGER_ATTESTATION_REQUIRE_SIGNED: 'true'
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -148,6 +163,9 @@ jobs:
           done
 
       - name: Build global release evidence summary
+        env:
+          RELEASE_EVIDENCE_REQUIRE_ATTESTATION: 'true'
+          RELEASE_EVIDENCE_REQUIRE_SIGNED_ATTESTATION: 'true'
         run: |
           set -euo pipefail
           mkdir -p ./artifacts/release-evidence/global
@@ -158,7 +176,6 @@ jobs:
             ./artifacts/release-evidence/global
 
       - name: Export global release evidence to audit target
-        if: vars.RELEASE_EVIDENCE_AUDIT_TARGET != ''
         env:
           RELEASE_EVIDENCE_AUDIT_TARGET: ${{ vars.RELEASE_EVIDENCE_AUDIT_TARGET }}
           RELEASE_EVIDENCE_AWS_REGION: ${{ vars.RELEASE_EVIDENCE_AWS_REGION }}

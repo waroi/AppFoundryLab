@@ -3,34 +3,24 @@
 Bu dosya yalnizca repo icinde halen acik olan backlog'u tutar.
 Tamamlanan maddeler burada tekrar listelenmez; README, analiz dokumanlari ve commit gecmisi kapatilan isi anlatir.
 
-## Faz 1 - Runtime ve Toolchain Sertlestirme
+## Faz 1 - Admin Diagnostics Gorunurlugu
 
-- [ ] `backend/go.mod` ile repo-ici Go toolchain surumunu ayni baseline'a cek
-- [ ] Postgres, Redis ve Mongo istemcileri icin yeniden deneme/iyilesme davranisini kalici hale getir
-- [ ] Logger `/health` sinyalini Mongo erisilebilirligiyle daha dogru hizala
-- [ ] `STRICT_DEPENDENCIES=false` icin tum dependency-backed route'larda net degrade veya fail-fast politikasi tanimla
+- [ ] `GET /api/v1/admin/runtime-config` icindeki `dependencyPolicies` alanini admin diagnostics UI'da okunur bir ozet olarak goster
+- [ ] Bu yeni diagnostics yuzeyi icin EN/TR copy ve component veya integration coverage ekle
 
-## Faz 2 - Frontend Bakim ve Test Kapsami
+## Faz 2 - Governance Script Coverage
 
-- [ ] `frontend/src/components/Interactive/SystemStatus.svelte` dosyasini daha kucuk, test edilebilir bolumlere ayir
-- [ ] Auth hata durumlari, runtime hata durumlari ve trace lookup bos/hatali akislari icin component veya integration testleri ekle
-- [ ] Locale/theme akislarini ve ana sayfa hiyerarsisini gorsel regression tabanli smoke ile destekle
+- [ ] `scripts/check-doc-drift.sh` icin fixture tabanli shell testleri ekle
+- [ ] Semantic truth checks'i archive usage, signed evidence ve mock/live smoke ayrimi senaryolariyla regression altina al
 
-## Faz 3 - Security ve Evidence Hijyeni
+## Faz 3 - Host-Backed Release Confidence
 
-- [ ] Release evidence export akisinda request log ve benzeri hassas artifact'ler icin redaction/minimization politikasi ekle
-- [ ] Staging/production akislarinda signed ledger attestation'i zorunlu hale getir
-- [ ] Repo icindeki operator scriptlerinde positional admin password kullanimini env/stdin tabanli modele tasiyarak shell history sizintisini azalt
-
-## Faz 4 - Ortam Sahipli Kapanislar
-
-- [ ] Staging ortaminda signed release evidence harvest kos ve artifact zincirini dogrula
-- [ ] Production ortaminda ayni signed evidence zincirini kontrollu pencereyle tekrar et
-- [ ] Signed evidence secret rotation ve sahiplik modelini runbook seviyesinde netlestir
+- [ ] `e2e:live` kosusunun nightly-only, merge-blocking veya on-demand modellerinden hangisinde tutulacagina karar ver
+- [ ] Secilen policy'yi workflow, `quality-gate.sh` semantigi ve dokuman seti boyunca tek kontrat haline getir
 
 ## Kabul Kriterleri
 
-- Yerel stack icin `dev-up` yalnizca kullanilabilir runtime durumunu dogruladiginda basarili kabul edilir
-- Mock-backed UI regresyonu ile gercek stack browser smoke'u birbirinden net ayrilir
-- README, quick-start, testing docs ve analiz belgeleri ayni maturity sinyalini verir
-- `PROGRESS.md` repo backlog'unun tek kanonik kaynagi olarak kalir
+- `PROGRESS.md` yalnizca gercek repo-owned aciklari listeler
+- Ortam sahipli staging/production evidence icralari runbook seviyesinde kalir; backlog'u kirletmez
+- Mock-backed UI regresyonu ile gercek stack browser smoke'u ayri fakat ayni dokuman gercegine bagli kalir
+- Toolchain, kalite ve deployment dokumanlari ayni maturity sinyalini verir

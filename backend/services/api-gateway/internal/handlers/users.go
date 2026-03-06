@@ -25,14 +25,18 @@ func (h *UsersHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	users, err := h.repo.List(ctx, 20)
 	if err != nil {
-		if os.Getenv("DEMO_FALLBACK_USERS") == "true" {
+		if repository.IsUserRepositoryUnavailable(err) && os.Getenv("DEMO_FALLBACK_USERS") == "true" {
 			fallbackUsers := []models.User{
 				{ID: 1, Name: "Demo User", Email: "demo@appfoundrylab.local", CreatedAt: time.Now().UTC()},
 			}
 			httpx.WriteJSON(w, http.StatusOK, map[string]any{"data": fallbackUsers})
 			return
 		}
-		httpx.WriteError(w, r, http.StatusInternalServerError, "failed_to_fetch_users", "failed to fetch users", nil)
+		if repository.IsUserRepositoryUnavailable(err) {
+			httpx.WriteError(w, r, http.StatusServiceUnavailable, "users_unavailable", "user data is unavailable", nil)
+			return
+		}
+		httpx.WriteError(w, r, http.StatusServiceUnavailable, "failed_to_fetch_users", "failed to fetch users", nil)
 		return
 	}
 

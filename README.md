@@ -54,8 +54,10 @@ cd frontend
 
 - Local bring-up truth: `./scripts/dev-up.sh standard`
 - Local teardown with reset: `./scripts/dev-down.sh standard --volumes`
+- Repo-local Go suite: `./scripts/bootstrap-go-toolchain.sh && ./scripts/go-test.sh`
 - Mock-backed UI regression: `cd frontend && ../.toolchain/bun/bin/bun run e2e`
 - Real stack browser smoke: `cd frontend && ../.toolchain/bun/bin/bun run e2e:live`
+- Doc truth gate: `./scripts/check-doc-drift.sh --mode strict`
 - Script + policy gate: `./scripts/quality-gate.sh sandbox-safe`
 - Deeper repo gate: `./scripts/quality-gate.sh ci-full`
 

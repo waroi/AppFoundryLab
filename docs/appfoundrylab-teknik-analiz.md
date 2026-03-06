@@ -18,15 +18,21 @@ Bu belge 2026-03-06 itibariyla repo gercegine dayanan kisa teknik analiz ozetidi
 - gercek stack icin ayri Playwright smoke yolu eklendi
 - invalid `LOCAL_AUTH_MODE` degerleri fail-safe davranisa cekildi
 - Fibonacci validation gateway ile worker arasinda ayni limite hizalandi
+- dependency-backed route davranisi kanonik bir matrix olarak belgelendi ve runtime config uzerinden yayinlandi
+- `archive-runtime-report.sh` env/stdin-first hale geldi; signed evidence beklentisi dokumanlarla hizalandi
 - backlog ve analiz belgeleri tek maturity anlatisi etrafinda temizlendi
 
-## Halen Acik Repo-Ici Basliklar
+## Guncel Durus
 
-- repo-local Go toolchain ile `backend/go.mod` surum uyumu
-- Postgres, Redis ve Mongo icin daha genis dependency recovery davranisi
-- logger health sinyalinin Mongo dogruluguna yaklastirilmasi
-- `SystemStatus.svelte` dosyasinin parcali bakim ve daha derin test coverage icin bolunmesi
-- evidence export redaction ve signed attestation enforcement'in yuksek ortamlar icin sertlestirilmesi
+- Bu repo release-oriented bir boilerplate olarak temiz ve calisir durumda.
+- Onceki PROGRESS fazlarindaki toolchain, runtime recovery, logger health, `SystemStatus`, evidence hijyeni ve signed-attestation drift basliklari repo tarafinda kapanmis durumda.
+- Kalan islerin buyuk kismi ortam sahipli operasyon icrasidir; repo backlog'u yalnizca yeni analizle tekrar acilan maddeleri tasimalidir.
+
+## Bir Sonraki Mantikli Alanlar
+
+- dependency policy matrix'ini admin diagnostics UI'da daha gorunur hale getirmek
+- semantik doc truth gate icin fixture tabanli script coverage'i artirmak
+- live-stack smoke'un merge oncesi host lane'e tasinip tasinmayacagini maliyet/fayda ile netlestirmek
 
 ## Mimari Sign-Off
 

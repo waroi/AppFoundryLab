@@ -26,7 +26,7 @@ Runtime kaynakli problemleri incelemek icin ilk durak admin diagnostics paneli v
 
 ## Operasyonel devam adimlari
 
-- deploy sonrasi diagnostics artifact'larini [archive-runtime-report.sh](/mnt/d/w/AppFoundryLab/scripts/archive-runtime-report.sh) ile arsivle
+- deploy sonrasi diagnostics artifact'larini [archive-runtime-report.sh](/mnt/d/w/AppFoundryLab/scripts/archive-runtime-report.sh) ile `DEPLOY_ADMIN_PASSWORD` veya `--password-stdin` kullanarak arsivle
 - eski incident kayitlarini [prune-incident-events.sh](/mnt/d/w/AppFoundryLab/scripts/prune-incident-events.sh) ile temizle
 - uzaktaki prune veya rollback islemleri icin [single-host-ops.yml](/mnt/d/w/AppFoundryLab/.github/workflows/single-host-ops.yml) kullan
 

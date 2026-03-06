@@ -31,11 +31,16 @@ cd frontend
 
 ## 2. Backend ve worker dogrulamasi
 
-Go testleri:
+Repo-local Go toolchain'i bir kez bootstrap edin:
 
 ```bash
-cd backend
-/mnt/d/w/AppFoundryLab/.toolchain/go/bin/go test ./...
+./scripts/bootstrap-go-toolchain.sh
+```
+
+Izole cache ile Go testleri:
+
+```bash
+./scripts/go-test.sh
 ```
 
 Rust worker testleri:
@@ -44,8 +49,6 @@ Rust worker testleri:
 cd backend/core/calculator
 cargo test
 ```
-
-Host toolchain `backend/go.mod` ile ayni baseline'da degilse, Faz 1 toolchain hizalamasina kadar container build'leri ve odakli yerel kontroller gecici fallback olarak ele alinmalidir.
 
 ## 3. Script ve release kapilari
 
@@ -61,18 +64,24 @@ Host toolchain `backend/go.mod` ile ayni baseline'da degilse, Faz 1 toolchain hi
 ./scripts/release-gate.sh full
 ```
 
-`ci-full` artik `ci-fast` kopyasi degil; tam release gate'i de calistirir.
+`check-doc-drift.sh` artik yalnizca degisen dosyalari degil; su dogruluk kurallarini da denetler:
+- `archive-runtime-report.sh` icin guvenli env/stdin kullanimi
+- signed evidence gereksinimleri
+- mock-backed `e2e` ile gercek stack `e2e:live` ayrimi
+
+`ci-full` artik tam release gate'i calistirir; `release-gate-full-nightly.yml` ise `RUN_LIVE_STACK_BROWSER_SMOKE=true` ile live-stack browser smoke'u da acik getirir.
 
 ## 4. Her katman neyi kanitlar
 
 - `smoke`: static build isaretcileri ve opsiyonel API kontrat probe'lari
-- `e2e`: selector, locale/theme davranisi ve mock-backed UI regresyonu
-- `e2e:live`: kullanicinin tarayicidan birebir tekrar edebilecegi Docker-backed happy path
+- `e2e`: selector, locale/theme screenshot'lari ve unhappy-path UI durumlari icin mock-backed regresyon
+- `e2e:live`: kullanicinin tarayicidan birebir tekrar edebilecegi Docker-backed admin login, runtime diagnostics ve trace lookup akisi
+- `go-test.sh`: `backend/go.mod` icindeki repo-local Go baseline'i ile calisan backend test suiti
 - `dev-up`: basari demeden once readiness ve bir authenticated admin smoke
 - `release-gate.sh full`: repo ici static kontroller, Go testleri, Rust testleri ve frontend build/smoke
 
-## 5. Halen acik bosluklar
+## 5. Guncel durum
 
-- `SystemStatus.svelte` halen fazla buyuk ve parcali bakima ihtiyac duyuyor
-- auth ve runtime hata dallari icin frontend coverage zayif
-- repo-ici Go toolchain hizalamasi `PROGRESS.md` icinde halen acik
+- Onceki toolchain, `SystemStatus` ve `ci-full` drift maddeleri kapatildi.
+- Dependency degradation kontrati artik [dependency-degradation-runbook.md](/mnt/d/w/AppFoundryLab/docs/dependency-degradation-runbook.md) icinde belgelenir ve `GET /api/v1/admin/runtime-config` uzerinden yayinlanir.
+- Halen acik repo backlog'un tek kanonik kaynagi `PROGRESS.md` dosyasidir.

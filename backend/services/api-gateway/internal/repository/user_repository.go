@@ -31,6 +31,10 @@ func (unavailableUserRepository) List(context.Context, int) ([]models.User, erro
 	return nil, errUserRepositoryUnavailable
 }
 
+func IsUserRepositoryUnavailable(err error) bool {
+	return errors.Is(err, errUserRepositoryUnavailable)
+}
+
 func (r *postgresUserRepository) List(ctx context.Context, limit int) ([]models.User, error) {
 	query := `
 	SELECT id, name, email, created_at

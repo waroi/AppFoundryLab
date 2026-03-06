@@ -187,3 +187,144 @@ func TestRuntimeMetricsHandler(t *testing.T) {
 		t.Fatal("expected runtime warnings to be populated")
 	}
 }
+
+func TestRuntimeMetricsLoggerHealthDegradedStillCountsAsReachable(t *testing.T) {
+	loggerClient := &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			switch req.URL.Path {
+			case "/health":
+				return &http.Response{
+					StatusCode: http.StatusServiceUnavailable,
+					Header:     make(http.Header),
+					Body: io.NopCloser(strings.NewReader(`{
+						"status":"degraded",
+						"checks":{"mongo":"down"},
+						"lastError":"mongo down"
+					}`)),
+				}, nil
+			case "/metrics":
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     make(http.Header),
+					Body: io.NopCloser(strings.NewReader(`{
+						"queueDepth":1,
+						"queueCapacity":32,
+						"workers":2,
+						"enqueuedTotal":5,
+						"droppedTotal":0,
+						"processedTotal":4,
+						"failedTotal":1,
+						"retriedTotal":1,
+						"inflightWorkers":0,
+						"dropRatio":0.0,
+						"dropAlertThresholdPct":5,
+						"dropAlertThresholdHit":false
+					}`)),
+				}, nil
+			case "/incident-events/summary":
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader(`{"totalEvents":0,"activeEvents":0}`)),
+				}, nil
+			default:
+				return &http.Response{
+					StatusCode: http.StatusNotFound,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader(`{}`)),
+				}, nil
+			}
+		}),
+	}
+
+	payload := BuildRuntimeMetricsSummary(metrics.NewStore(), RuntimeMetricsOptions{
+		LoggerEndpoint:   "http://logger.local/ingest",
+		LoggerHTTPClient: loggerClient,
+	})
+
+	if !payload.LoggerService.Reachable {
+		t.Fatal("expected logger service endpoint to be reachable")
+	}
+	if payload.LoggerService.HealthStatus != "degraded" {
+		t.Fatalf("expected degraded logger health, got %s", payload.LoggerService.HealthStatus)
+	}
+	if payload.LoggerService.LastError != "mongo down" {
+		t.Fatalf("expected logger last error to be propagated, got %s", payload.LoggerService.LastError)
+	}
+
+	found := false
+	for _, warning := range payload.Warnings {
+		if warning == "logger service health is degraded" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected warning for degraded logger health")
+	}
+
+	found = false
+	for _, item := range payload.Alerts.Items {
+		if item.Code == "logger.health_degraded" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected logger.health_degraded alert item")
+	}
+}
+
+func TestRuntimeMetricsHandlerTracksDegradedLoggerHealth(t *testing.T) {
+	loggerClient := &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			switch req.URL.Path {
+			case "/health":
+				return &http.Response{
+					StatusCode: http.StatusServiceUnavailable,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader(`{"status":"degraded","checks":{"mongo":"down"}}`)),
+				}, nil
+			case "/metrics":
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader(`{"queueDepth":0,"queueCapacity":64,"workers":2}`)),
+				}, nil
+			case "/incident-events/summary":
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader(`{"totalEvents":0,"activeEvents":0,"latestEventAt":"","lastEventStatus":""}`)),
+				}, nil
+			default:
+				return &http.Response{
+					StatusCode: http.StatusNotFound,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader(`{}`)),
+				}, nil
+			}
+		}),
+	}
+
+	payload := BuildRuntimeMetricsSummary(metrics.NewStore(), RuntimeMetricsOptions{
+		LoggerEndpoint:   "http://logger.local/ingest",
+		LoggerHTTPClient: loggerClient,
+		RequestLoggerStatsProvider: func() middleware.AsyncLogSenderStats {
+			return middleware.AsyncLogSenderStats{}
+		},
+	})
+
+	if !payload.LoggerService.Reachable {
+		t.Fatal("expected logger service to be reachable even when health is degraded")
+	}
+	if payload.LoggerService.HealthStatus != "degraded" {
+		t.Fatalf("expected degraded health status, got %s", payload.LoggerService.HealthStatus)
+	}
+	if len(payload.Warnings) == 0 {
+		t.Fatal("expected warnings for degraded logger health")
+	}
+	if payload.Alerts.ActiveCount == 0 {
+		t.Fatal("expected alerts for degraded logger health")
+	}
+}
