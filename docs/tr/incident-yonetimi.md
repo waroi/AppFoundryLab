@@ -4,6 +4,7 @@ Runtime kaynakli problemleri incelemek icin ilk durak admin diagnostics paneli v
 
 ## Temel endpoint'ler
 
+- `GET /api/v1/admin/runtime-config`
 - `GET /api/v1/admin/runtime-report`
 - `GET /api/v1/admin/runtime-incident-report`
 - `GET /api/v1/admin/incident-events`
@@ -23,9 +24,11 @@ Runtime kaynakli problemleri incelemek icin ilk durak admin diagnostics paneli v
 - logger servisi bu event'leri MongoDB'de saklar
 - monitor artik `logger`, `stdout`, `webhook` veya bunlarin kombinasyonlarina fan-out yapabilir
 - admin UI en son event'leri gostererek problemin yeni mi tekrarli mi oldugunu anlamayi kolaylastirir
+- runtime config payload'u config drift'i ayiklayabilmek icin trusted proxy CIDR'larini ve logger timing knob'larini da gosterir
 
 ## Operasyonel devam adimlari
 
+- logger veya proxy arizasi varsaymadan once runtime knob ozetini kontrol et
 - deploy sonrasi diagnostics artifact'larini [archive-runtime-report.sh](/mnt/d/w/AppFoundryLab/scripts/archive-runtime-report.sh) ile `DEPLOY_ADMIN_PASSWORD` veya `--password-stdin` kullanarak arsivle
 - eski incident kayitlarini [prune-incident-events.sh](/mnt/d/w/AppFoundryLab/scripts/prune-incident-events.sh) ile temizle
 - uzaktaki prune veya rollback islemleri icin [single-host-ops.yml](/mnt/d/w/AppFoundryLab/.github/workflows/single-host-ops.yml) kullan

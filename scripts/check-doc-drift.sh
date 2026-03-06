@@ -97,6 +97,24 @@ note_semantic_failure() {
   semantic_failures+=("$1")
 }
 
+extract_prefixed_value() {
+  local path="$1"
+  local prefix="$2"
+
+  if [[ ! -f "$path" ]]; then
+    return 0
+  fi
+
+  awk -v prefix="$prefix" '
+    index($0, prefix) == 1 {
+      value = substr($0, length(prefix) + 1)
+      sub(/^[[:space:]]+/, "", value)
+      print value
+      exit
+    }
+  ' "$path"
+}
+
 require_file_contains() {
   local path="$1"
   local pattern="$2"
@@ -227,6 +245,31 @@ run_semantic_doc_truth_checks() {
     "docs/tr/test-ve-kalite.md" \
     'repo-ici Go toolchain hizalamasi `PROGRESS.md` icinde halen acik' \
     "TR testing docs must not point at stale backlog items"
+
+  require_file_contains \
+    "docs/gelistirmePlanı.md" \
+    "PROGRESS.md" \
+    "strategic phase plan must reference the canonical backlog"
+  require_file_contains \
+    "PROGRESS.md" \
+    "Aktif faz:" \
+    "canonical backlog must expose the active phase summary"
+
+  if [[ -f "PROGRESS.md" ]]; then
+    local progress_heading_count
+    progress_heading_count="$(grep -Ec '^# PROGRESS[[:space:]]*$' "PROGRESS.md" || true)"
+    if [[ "$progress_heading_count" -ne 1 ]]; then
+      note_semantic_failure "PROGRESS.md: expected exactly one '# PROGRESS' heading, found $progress_heading_count"
+    fi
+  fi
+
+  local progress_active_phase plan_active_phase
+  progress_active_phase="$(extract_prefixed_value "PROGRESS.md" "Aktif faz:")"
+  plan_active_phase="$(extract_prefixed_value "docs/gelistirmePlanı.md" "Sonraki aktif hedef:")"
+
+  if [[ -n "$progress_active_phase" && -n "$plan_active_phase" && "$progress_active_phase" != "$plan_active_phase" ]]; then
+    note_semantic_failure "docs/gelistirmePlanı.md: active phase drift with PROGRESS.md ($plan_active_phase != $progress_active_phase)"
+  fi
 }
 
 if [[ "$MODE" != "advisory" && "$MODE" != "strict" ]]; then
@@ -272,7 +315,7 @@ if [[ -z "$CHANGED_FILES" ]]; then
   exit 0
 fi
 
-if ! echo "$CHANGED_FILES" | grep -Eq '^(backend/|frontend/|docker-compose\.yml|docker-compose\.security\.yml|\.github/workflows/|scripts/|toolchain\.versions\.json)'; then
+if ! echo "$CHANGED_FILES" | grep -Eq '^(backend/|frontend/|docker-compose\.yml|docker-compose\.security\.yml|\.github/workflows/|scripts/|toolchain\.versions\.json|README\.md|docs/|PROGRESS\.md)'; then
   echo "doc drift check passed: no code/infrastructure changes requiring docs"
   exit 0
 fi
@@ -281,6 +324,7 @@ required_docs=(
   "README.md"
   "docs/appfoundrylab-teknik-analiz.md"
   "docs/gelistirmePlanı.md"
+  "PROGRESS.md"
 )
 
 missing_docs=()

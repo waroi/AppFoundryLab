@@ -5,7 +5,7 @@ Bu klasor repo'nun yerel gelistirme, kalite, deployment ve evidence akisini tasi
 ## Local Dev
 
 - `dev-doctor.sh`: host gereksinimlerini ve Docker/Compose erisilebilirligini kontrol eder
-- `bootstrap.sh`: `.env`, `.env.docker.local` ve local dev cert'lerini hazirlar
+- `bootstrap.sh`: `.env`, gitignored `.env.docker.local` ve local dev cert'lerini hazirlar; `.env.docker` sadece template olarak kalir
 - `dev-up.sh`: stack'i build edip kaldirir; readiness ve authenticated smoke dogrular
 - `dev-down.sh`: stack'i kapatir; `--volumes` ile local reset yapar
 
@@ -22,7 +22,7 @@ Bu klasor repo'nun yerel gelistirme, kalite, deployment ve evidence akisini tasi
 
 ## Frontend ve Browser
 
-- `bootstrap-playwright-linux.sh`: Linux icin Playwright runtime kutuphanelerini hazirlar
+- `bootstrap-playwright-linux.sh`: Linux icin Playwright runtime kutuphanelerini hazirlar ve `frontend/.playwright-linux.env` uretir; Playwright config'leri bu dosyayi otomatik yukler
 
 ## Deploy ve Ops
 
@@ -33,7 +33,7 @@ Bu klasor repo'nun yerel gelistirme, kalite, deployment ve evidence akisini tasi
 
 ## Backup ve Restore
 
-- `backup-single-host.sh`: backup bundle uretir
+- `backup-single-host.sh`: backup bundle uretir; single-host env ile sifreleme passphrase'i zorunlu kilinar
 - `restore-drill-single-host.sh`: restore drill ve verification artifact uretir
 - `backup-postgres.sh`, `backup-mongo.sh`, `restore-postgres.sh`, `restore-mongo.sh`: datastore odakli yardimcilar
 
@@ -44,3 +44,4 @@ Bu klasor repo'nun yerel gelistirme, kalite, deployment ve evidence akisini tasi
 - `export-release-evidence.sh`: evidence paketlerini hedefe tasir
 - `attest-release-ledger.sh`: release ledger attestation uretir
 - `verify-release-ledger-attestation.sh`: attestation dogrular
+- `live-stack-browser-smoke.sh`: tam Docker-backed `e2e:live` kosusunu nightly veya manuel release-confidence lane olarak calistirir; branch-protection check'i degildir

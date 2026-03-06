@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/example/appfoundrylab/backend/pkg/runtimeknobs"
 	"github.com/example/appfoundrylab/backend/services/logger/internal/incidents"
 )
 
@@ -42,6 +43,56 @@ func TestVerifyIngestAuth(t *testing.T) {
 	req.Header.Set("X-Logger-Signature", "bad-signature")
 	if err := verifyIngestAuth(req, secret, false); err == nil {
 		t.Fatal("expected error for invalid signature")
+	}
+}
+
+func TestVerifyIngestAuthRejectsExcessiveFutureSkew(t *testing.T) {
+	body := []byte(`{"path":"/health"}`)
+	timestamp := time.Now().UTC().Add(10 * time.Second).Format(time.RFC3339Nano)
+	secret := "test-secret"
+
+	req := httptest.NewRequest("POST", "/ingest", bytes.NewReader(body))
+	req.Header.Set("X-Logger-Timestamp", timestamp)
+	req.Header.Set("X-Logger-Signature", signLogPayload(secret, timestamp, body))
+
+	if err := verifyIngestAuth(req, secret, false); err == nil {
+		t.Fatal("expected future replay skew validation to fail")
+	}
+}
+
+func TestVerifyIngestAuthHonorsConfiguredFutureSkew(t *testing.T) {
+	t.Setenv("LOGGER_INGEST_TIMESTAMP_MAX_FUTURE_SKEW_SECONDS", "15")
+
+	body := []byte(`{"path":"/health"}`)
+	timestamp := time.Now().UTC().Add(10 * time.Second).Format(time.RFC3339Nano)
+	secret := "test-secret"
+
+	req := httptest.NewRequest("POST", "/ingest", bytes.NewReader(body))
+	req.Header.Set("X-Logger-Timestamp", timestamp)
+	req.Header.Set("X-Logger-Signature", signLogPayload(secret, timestamp, body))
+
+	if err := verifyIngestAuth(req, secret, false); err != nil {
+		t.Fatalf("expected configured future skew to allow request, got %v", err)
+	}
+}
+
+func TestReplayWindowHelpersFallbackOnInvalidValues(t *testing.T) {
+	t.Setenv("LOGGER_INGEST_TIMESTAMP_MAX_AGE_SECONDS", "-1")
+	t.Setenv("LOGGER_INGEST_TIMESTAMP_MAX_FUTURE_SKEW_SECONDS", "0")
+	t.Setenv("LOGGER_HEALTH_TIMEOUT_MS", "-25")
+
+	if got := ingestReplayMaxAge(); got != runtimeknobs.DefaultLoggerIngestTimestampMaxAge {
+		t.Fatalf("expected max age fallback to %v, got %v", runtimeknobs.DefaultLoggerIngestTimestampMaxAge, got)
+	}
+	if got := ingestReplayMaxFutureSkew(); got != runtimeknobs.DefaultLoggerIngestTimestampMaxFutureSkew {
+		t.Fatalf(
+			"expected future skew fallback to %v, got %v",
+			runtimeknobs.DefaultLoggerIngestTimestampMaxFutureSkew,
+			got,
+		)
+	}
+	if got := healthCheckTimeout(); got != runtimeknobs.DefaultLoggerHealthTimeout {
+		t.Fatalf("expected health timeout fallback to %v, got %v", runtimeknobs.DefaultLoggerHealthTimeout, got)
 	}
 }
 

@@ -18,6 +18,14 @@ func TestRuntimeConfigHandler(t *testing.T) {
 		},
 		Operations: RuntimeOperationsSummary{
 			RateLimitStore: "memory",
+			RequestLogging: RuntimeRequestLoggingSummary{
+				TrustedProxyCIDRs: []string{"127.0.0.1/32"},
+			},
+			LoggerTiming: RuntimeLoggerTimingSummary{
+				HealthTimeoutMS:                     1500,
+				IngestTimestampMaxAgeSeconds:        300,
+				IngestTimestampMaxFutureSkewSeconds: 5,
+			},
 			DependencyPolicies: []RuntimeDependencyPolicy{
 				{
 					Route:           "GET /api/v1/users",
@@ -55,5 +63,11 @@ func TestRuntimeConfigHandler(t *testing.T) {
 	}
 	if payload.Operations.DependencyPolicies[0].Dependency != "postgres" {
 		t.Fatalf("expected postgres dependency policy, got %q", payload.Operations.DependencyPolicies[0].Dependency)
+	}
+	if got := payload.Operations.RequestLogging.TrustedProxyCIDRs[0]; got != "127.0.0.1/32" {
+		t.Fatalf("expected normalized trusted proxy cidr, got %q", got)
+	}
+	if payload.Operations.LoggerTiming.HealthTimeoutMS != 1500 {
+		t.Fatalf("expected logger health timeout 1500ms, got %d", payload.Operations.LoggerTiming.HealthTimeoutMS)
 	}
 }

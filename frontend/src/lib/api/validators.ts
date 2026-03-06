@@ -2,6 +2,7 @@ import type {
   FibonacciResponse,
   HealthResponse,
   RuntimeConfigResponse,
+  RuntimeDependencyPolicy,
   RuntimeIncidentEventsResponse,
   RuntimeMetricsResponse,
   RuntimeReportResponse,
@@ -10,12 +11,62 @@ import type {
   UsersResponse,
 } from "./types";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function isRunbookArray(
+  value: unknown,
+): value is
+  | RuntimeReportResponse["runbooks"]
+  | RuntimeIncidentEventsResponse["items"][number]["runbooks"] {
+  return (
+    Array.isArray(value) &&
+    value.every((item) => {
+      if (!isRecord(item)) {
+        return false;
+      }
+
+      return (
+        typeof item.id === "string" &&
+        typeof item.title === "string" &&
+        typeof item.path === "string" &&
+        typeof item.reason === "string" &&
+        typeof item.priority === "string"
+      );
+    })
+  );
+}
+
+function isDependencyPolicies(value: unknown): value is RuntimeDependencyPolicy[] {
+  return (
+    Array.isArray(value) &&
+    value.every((item) => {
+      if (!isRecord(item)) {
+        return false;
+      }
+
+      return (
+        typeof item.route === "string" &&
+        typeof item.dependency === "string" &&
+        typeof item.strictMode === "string" &&
+        typeof item.nonStrictMode === "string" &&
+        typeof item.runtimeBehavior === "string"
+      );
+    })
+  );
+}
+
 export function isHealthResponse(payload: unknown): payload is HealthResponse {
-  if (typeof payload !== "object" || payload === null) {
+  if (!isRecord(payload)) {
     return false;
   }
 
-  const candidate = payload as Record<string, unknown>;
+  const candidate = payload;
   const checks = candidate.checks as Record<string, unknown> | undefined;
 
   return (
@@ -28,20 +79,20 @@ export function isHealthResponse(payload: unknown): payload is HealthResponse {
 }
 
 export function isUsersResponse(payload: unknown): payload is UsersResponse {
-  if (typeof payload !== "object" || payload === null) {
+  if (!isRecord(payload)) {
     return false;
   }
 
-  const candidate = payload as Record<string, unknown>;
+  const candidate = payload;
   if (!Array.isArray(candidate.data)) {
     return false;
   }
 
   return candidate.data.every((item) => {
-    if (typeof item !== "object" || item === null) {
+    if (!isRecord(item)) {
       return false;
     }
-    const user = item as Record<string, unknown>;
+    const user = item;
     return (
       typeof user.id === "number" &&
       typeof user.name === "string" &&
@@ -52,10 +103,11 @@ export function isUsersResponse(payload: unknown): payload is UsersResponse {
 }
 
 export function isTokenResponse(payload: unknown): payload is TokenResponse {
-  if (typeof payload !== "object" || payload === null) {
+  if (!isRecord(payload)) {
     return false;
   }
-  const candidate = payload as Record<string, unknown>;
+
+  const candidate = payload;
   return (
     typeof candidate.accessToken === "string" &&
     candidate.tokenType === "Bearer" &&
@@ -65,19 +117,20 @@ export function isTokenResponse(payload: unknown): payload is TokenResponse {
 }
 
 export function isFibonacciResponse(payload: unknown): payload is FibonacciResponse {
-  if (typeof payload !== "object" || payload === null) {
+  if (!isRecord(payload)) {
     return false;
   }
-  const candidate = payload as Record<string, unknown>;
+
+  const candidate = payload;
   return typeof candidate.n === "number" && typeof candidate.value === "number";
 }
 
 export function isRuntimeConfigResponse(payload: unknown): payload is RuntimeConfigResponse {
-  if (typeof payload !== "object" || payload === null) {
+  if (!isRecord(payload)) {
     return false;
   }
 
-  const candidate = payload as Record<string, unknown>;
+  const candidate = payload;
   const http = candidate.http as Record<string, unknown> | undefined;
   const security = candidate.security as Record<string, unknown> | undefined;
   const operations = candidate.operations as Record<string, unknown> | undefined;
@@ -91,7 +144,7 @@ export function isRuntimeConfigResponse(payload: unknown): payload is RuntimeCon
     typeof http.authRateLimitPerMinute === "number" &&
     typeof http.apiRateLimitPerMinute === "number" &&
     typeof http.maxInFlightRequests === "number" &&
-    Array.isArray(http.loadShedExemptPrefixes) &&
+    isStringArray(http.loadShedExemptPrefixes) &&
     typeof http.readyCacheTtlMs === "number" &&
     typeof http.readyStaleIfErrorTtlMs === "number" &&
     !!security &&
@@ -113,16 +166,23 @@ export function isRuntimeConfigResponse(payload: unknown): payload is RuntimeCon
     typeof operations.incidentEventWebhookConfigured === "boolean" &&
     typeof operations.incidentEventRetentionDays === "number" &&
     typeof operations.loggerEndpointConfigured === "boolean" &&
-    Array.isArray(candidate.warnings)
+    isRecord(operations.requestLogging) &&
+    isStringArray(operations.requestLogging.trustedProxyCidrs) &&
+    isRecord(operations.loggerTiming) &&
+    typeof operations.loggerTiming.healthTimeoutMs === "number" &&
+    typeof operations.loggerTiming.ingestTimestampMaxAgeSeconds === "number" &&
+    typeof operations.loggerTiming.ingestTimestampMaxFutureSkewSeconds === "number" &&
+    isDependencyPolicies(operations.dependencyPolicies) &&
+    isStringArray(candidate.warnings)
   );
 }
 
 export function isRuntimeMetricsResponse(payload: unknown): payload is RuntimeMetricsResponse {
-  if (typeof payload !== "object" || payload === null) {
+  if (!isRecord(payload)) {
     return false;
   }
 
-  const candidate = payload as Record<string, unknown>;
+  const candidate = payload;
   const health = candidate.health as Record<string, unknown> | undefined;
   const trace = candidate.trace as Record<string, unknown> | undefined;
   const gatewayLogger = candidate.gatewayLogger as Record<string, unknown> | undefined;
@@ -140,10 +200,10 @@ export function isRuntimeMetricsResponse(payload: unknown): payload is RuntimeMe
     typeof candidate.inflightPeak === "number" &&
     Array.isArray(candidate.recentHistory) &&
     candidate.recentHistory.every((item) => {
-      if (typeof item !== "object" || item === null) {
+      if (!isRecord(item)) {
         return false;
       }
-      const point = item as Record<string, unknown>;
+      const point = item;
       return (
         typeof point.recordedAt === "string" &&
         typeof point.requestsTotal === "number" &&
@@ -161,10 +221,10 @@ export function isRuntimeMetricsResponse(payload: unknown): payload is RuntimeMe
     typeof alerts.recentlyBreached === "boolean" &&
     Array.isArray(alerts.items) &&
     alerts.items.every((item) => {
-      if (typeof item !== "object" || item === null) {
+      if (!isRecord(item)) {
         return false;
       }
-      const alert = item as Record<string, unknown>;
+      const alert = item;
       return (
         typeof alert.code === "string" &&
         typeof alert.severity === "string" &&
@@ -231,59 +291,62 @@ export function isRuntimeMetricsResponse(payload: unknown): payload is RuntimeMe
     typeof incidentJournal.dispatchFailures === "number" &&
     typeof incidentJournal.lastDispatchAt === "string" &&
     typeof incidentJournal.lastDispatchError === "string" &&
-    Array.isArray(candidate.warnings)
+    isStringArray(candidate.warnings)
   );
 }
 
 export function isRuntimeReportResponse(payload: unknown): payload is RuntimeReportResponse {
-  if (typeof payload !== "object" || payload === null) {
+  if (!isRecord(payload)) {
     return false;
   }
 
-  const candidate = payload as Record<string, unknown>;
+  const candidate = payload;
+  const incident = candidate.incident as Record<string, unknown> | undefined;
   return (
     typeof candidate.generatedAt === "string" &&
     typeof candidate.reportVersion === "string" &&
     isRuntimeConfigResponse(candidate.config) &&
     isRuntimeMetricsResponse(candidate.metrics) &&
-    Array.isArray(candidate.runbooks) &&
-    candidate.runbooks.every((item) => {
-      if (typeof item !== "object" || item === null) {
+    isRunbookArray(candidate.runbooks) &&
+    !!incident &&
+    typeof incident.recommendedSeverity === "string" &&
+    typeof incident.category === "string" &&
+    typeof incident.title === "string" &&
+    typeof incident.summary === "string" &&
+    isStringArray(incident.suspectedSystems) &&
+    isStringArray(incident.triggeredAlerts) &&
+    isStringArray(incident.nextActions) &&
+    Array.isArray(incident.evidence) &&
+    incident.evidence.every((item) => {
+      if (!isRecord(item)) {
         return false;
       }
-      const runbook = item as Record<string, unknown>;
+
       return (
-        typeof runbook.id === "string" &&
-        typeof runbook.title === "string" &&
-        typeof runbook.path === "string" &&
-        typeof runbook.reason === "string" &&
-        typeof runbook.priority === "string"
+        typeof item.kind === "string" &&
+        typeof item.label === "string" &&
+        typeof item.value === "string" &&
+        typeof item.source === "string"
       );
-    }) &&
-    typeof candidate.incident === "object" &&
-    candidate.incident !== null &&
-    Array.isArray((candidate.incident as Record<string, unknown>).suspectedSystems) &&
-    Array.isArray((candidate.incident as Record<string, unknown>).triggeredAlerts) &&
-    Array.isArray((candidate.incident as Record<string, unknown>).nextActions) &&
-    Array.isArray((candidate.incident as Record<string, unknown>).evidence)
+    })
   );
 }
 
 export function isRuntimeIncidentEventsResponse(
   payload: unknown,
 ): payload is RuntimeIncidentEventsResponse {
-  if (typeof payload !== "object" || payload === null) {
+  if (!isRecord(payload)) {
     return false;
   }
 
-  const candidate = payload as Record<string, unknown>;
+  const candidate = payload;
   return (
     Array.isArray(candidate.items) &&
     candidate.items.every((item) => {
-      if (typeof item !== "object" || item === null) {
+      if (!isRecord(item)) {
         return false;
       }
-      const event = item as Record<string, unknown>;
+      const event = item;
       return (
         typeof event.id === "string" &&
         typeof event.eventType === "string" &&
@@ -303,7 +366,7 @@ export function isRuntimeIncidentEventsResponse(
         typeof event.traceId === "string" &&
         typeof event.reportGeneratedAt === "string" &&
         typeof event.reportVersion === "string" &&
-        Array.isArray(event.runbooks)
+        isRunbookArray(event.runbooks)
       );
     })
   );
@@ -312,18 +375,18 @@ export function isRuntimeIncidentEventsResponse(
 export function isRuntimeRequestLogsResponse(
   payload: unknown,
 ): payload is RuntimeRequestLogsResponse {
-  if (typeof payload !== "object" || payload === null) {
+  if (!isRecord(payload)) {
     return false;
   }
 
-  const candidate = payload as Record<string, unknown>;
+  const candidate = payload;
   return (
     Array.isArray(candidate.items) &&
     candidate.items.every((item) => {
-      if (typeof item !== "object" || item === null) {
+      if (!isRecord(item)) {
         return false;
       }
-      const record = item as Record<string, unknown>;
+      const record = item;
       return (
         typeof record.path === "string" &&
         typeof record.method === "string" &&

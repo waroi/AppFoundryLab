@@ -244,6 +244,23 @@ describe("validators", () => {
         incidentEventWebhookConfigured: true,
         incidentEventRetentionDays: 30,
         loggerEndpointConfigured: true,
+        requestLogging: {
+          trustedProxyCidrs: ["127.0.0.1/32"],
+        },
+        loggerTiming: {
+          healthTimeoutMs: 1500,
+          ingestTimestampMaxAgeSeconds: 300,
+          ingestTimestampMaxFutureSkewSeconds: 5,
+        },
+        dependencyPolicies: [
+          {
+            route: "GET /api/v1/users",
+            dependency: "postgres",
+            strictMode: "startup fails",
+            nonStrictMode: "startup continues",
+            runtimeBehavior: "returns 503 users_unavailable",
+          },
+        ],
       },
       warnings: ["warning1"],
     };
@@ -269,6 +286,42 @@ describe("validators", () => {
 
     it("should return false if warnings is not an array", () => {
       const invalidConfig = { ...validConfig, warnings: "warning1" };
+      expect(isRuntimeConfigResponse(invalidConfig)).toBe(false);
+    });
+
+    it("should return false if load shed prefixes contain non-string values", () => {
+      const invalidConfig = {
+        ...validConfig,
+        http: {
+          ...validConfig.http,
+          loadShedExemptPrefixes: ["/health", 42],
+        },
+      };
+
+      expect(isRuntimeConfigResponse(invalidConfig)).toBe(false);
+    });
+
+    it("should return false if dependency policies are missing required fields", () => {
+      const invalidConfig = {
+        ...validConfig,
+        operations: {
+          ...validConfig.operations,
+          dependencyPolicies: [{ route: "GET /api/v1/users" }],
+        },
+      };
+
+      expect(isRuntimeConfigResponse(invalidConfig)).toBe(false);
+    });
+
+    it("should return false if logger timing fields are missing", () => {
+      const invalidConfig = {
+        ...validConfig,
+        operations: {
+          ...validConfig.operations,
+          loggerTiming: { healthTimeoutMs: 1500 },
+        },
+      };
+
       expect(isRuntimeConfigResponse(invalidConfig)).toBe(false);
     });
   });
@@ -449,6 +502,23 @@ describe("validators", () => {
         incidentEventWebhookConfigured: true,
         incidentEventRetentionDays: 30,
         loggerEndpointConfigured: true,
+        requestLogging: {
+          trustedProxyCidrs: ["127.0.0.1/32"],
+        },
+        loggerTiming: {
+          healthTimeoutMs: 1500,
+          ingestTimestampMaxAgeSeconds: 300,
+          ingestTimestampMaxFutureSkewSeconds: 5,
+        },
+        dependencyPolicies: [
+          {
+            route: "GET /api/v1/users",
+            dependency: "postgres",
+            strictMode: "startup fails",
+            nonStrictMode: "startup continues",
+            runtimeBehavior: "returns 503 users_unavailable",
+          },
+        ],
       },
       warnings: ["warning1"],
     };
@@ -547,10 +617,21 @@ describe("validators", () => {
         },
       ],
       incident: {
+        recommendedSeverity: "warning",
+        category: "latency",
+        title: "Gateway latency regression",
+        summary: "Logger requests are slower than expected.",
         suspectedSystems: ["gateway"],
         triggeredAlerts: ["ERR1"],
         nextActions: ["Investigate"],
-        evidence: ["logs"],
+        evidence: [
+          {
+            kind: "metric",
+            label: "latencyAverageMs",
+            value: "50",
+            source: "runtime-metrics",
+          },
+        ],
       },
     };
 
@@ -583,6 +664,18 @@ describe("validators", () => {
       };
       expect(isRuntimeReportResponse(invalidIncident)).toBe(false);
     });
+
+    it("should return false if incident evidence entries are malformed", () => {
+      const invalidReport = {
+        ...validReport,
+        incident: {
+          ...validReport.incident,
+          evidence: [{ label: "latencyAverageMs" }],
+        },
+      };
+
+      expect(isRuntimeReportResponse(invalidReport)).toBe(false);
+    });
   });
 
   describe("isRuntimeIncidentEventsResponse", () => {
@@ -608,7 +701,15 @@ describe("validators", () => {
             traceId: "trace1",
             reportGeneratedAt: "2023-10-10T00:00:00Z",
             reportVersion: "1.0",
-            runbooks: [],
+            runbooks: [
+              {
+                id: "rb1",
+                title: "Runtime Incident Response",
+                path: "docs/runtime-incident-response.md",
+                reason: "Primary runtime flow",
+                priority: "high",
+              },
+            ],
           },
         ],
       };
@@ -634,6 +735,36 @@ describe("validators", () => {
           },
         ],
       };
+      expect(isRuntimeIncidentEventsResponse(payload)).toBe(false);
+    });
+
+    it("should return false if incident runbooks are malformed", () => {
+      const payload = {
+        items: [
+          {
+            id: "ev1",
+            eventType: "alert",
+            alertCode: "ERR1",
+            severity: "high",
+            status: "active",
+            source: "gateway",
+            title: "Error Title",
+            summary: "Error Summary",
+            message: "Error Message",
+            recommendedAction: "Fix",
+            recommendedSeverity: "high",
+            triggeredAt: "2023-10-10T00:00:00Z",
+            firstSeenAt: "2023-10-10T00:00:00Z",
+            lastSeenAt: "2023-10-10T00:00:00Z",
+            breachCount: 5,
+            traceId: "trace1",
+            reportGeneratedAt: "2023-10-10T00:00:00Z",
+            reportVersion: "1.0",
+            runbooks: [{ id: "rb1" }],
+          },
+        ],
+      };
+
       expect(isRuntimeIncidentEventsResponse(payload)).toBe(false);
     });
   });

@@ -55,7 +55,12 @@ function availableTraceIds(): string[] {
 <div class="mt-5 panel" style={`background: var(--accent-panel-bg); border-color: var(--accent-panel-border);`}>
   <h3 class="font-semibold">{copy.systemStatus.adminTitle}</h3>
   {#if runtimeError}
-    <p class="mt-2 text-sm" style={`color: var(--danger-text);`} data-testid="runtime-error">
+    <p
+      class="mt-2 text-sm"
+      style={`color: var(--danger-text);`}
+      data-testid="runtime-error"
+      role="alert"
+    >
       {copy.common.error}: {translateError(activeLocale, runtimeError)}
     </p>
   {:else if runtimeConfig}
@@ -137,6 +142,97 @@ function availableTraceIds(): string[] {
         </p>
       </div>
     </div>
+
+    <div class="mt-3 panel-strong text-sm" data-testid="runtime-knobs-panel">
+      <div>
+        <p class="font-semibold">{copy.systemStatus.runtimeKnobsTitle}</p>
+        <p class="text-muted">{copy.systemStatus.runtimeKnobsDescription}</p>
+      </div>
+      <div class="mt-3 grid gap-2 sm:grid-cols-2">
+        <div class="panel-subtle">
+          <p class="font-semibold">{copy.systemStatus.requestLogTrustedProxyCidrs}</p>
+          <p class="mt-1 text-soft"><code>REQUEST_LOG_TRUSTED_PROXY_CIDRS</code></p>
+          {#if runtimeConfig.operations.requestLogging.trustedProxyCidrs.length > 0}
+            <ul class="mt-2 list-disc pl-5 text-body" data-testid="runtime-knob-trusted-proxy-list">
+              {#each runtimeConfig.operations.requestLogging.trustedProxyCidrs as cidr}
+                <li><code>{cidr}</code></li>
+              {/each}
+            </ul>
+          {:else}
+            <p class="mt-2 text-body" data-testid="runtime-knob-trusted-proxy-empty">
+              {copy.systemStatus.noTrustedProxyCidrs}
+            </p>
+          {/if}
+        </div>
+        <div class="panel-subtle">
+          <p class="font-semibold">{copy.systemStatus.loggerHealthTimeout}</p>
+          <p class="mt-1 text-soft"><code>LOGGER_HEALTH_TIMEOUT_MS</code></p>
+          <p class="mt-2 text-body" data-testid="runtime-knob-health-timeout">
+            {`${runtimeConfig.operations.loggerTiming.healthTimeoutMs} ${copy.common.milliseconds}`}
+          </p>
+        </div>
+        <div class="panel-subtle">
+          <p class="font-semibold">{copy.systemStatus.loggerIngestTimestampMaxAge}</p>
+          <p class="mt-1 text-soft"><code>LOGGER_INGEST_TIMESTAMP_MAX_AGE_SECONDS</code></p>
+          <p class="mt-2 text-body" data-testid="runtime-knob-ingest-max-age">
+            {`${runtimeConfig.operations.loggerTiming.ingestTimestampMaxAgeSeconds} ${copy.common.seconds}`}
+          </p>
+        </div>
+        <div class="panel-subtle">
+          <p class="font-semibold">{copy.systemStatus.loggerIngestTimestampMaxFutureSkew}</p>
+          <p class="mt-1 text-soft"><code>LOGGER_INGEST_TIMESTAMP_MAX_FUTURE_SKEW_SECONDS</code></p>
+          <p class="mt-2 text-body" data-testid="runtime-knob-ingest-future-skew">
+            {`${runtimeConfig.operations.loggerTiming.ingestTimestampMaxFutureSkewSeconds} ${copy.common.seconds}`}
+          </p>
+        </div>
+      </div>
+      <p class="mt-3 text-muted" data-testid="runtime-knobs-note">
+        {copy.systemStatus.runtimeKnobsNote}
+      </p>
+    </div>
+
+    {#if runtimeConfig.operations.dependencyPolicies.length > 0}
+      <div class="mt-3 panel-strong text-sm" data-testid="dependency-policies-panel">
+        <div class="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <p class="font-semibold">{copy.systemStatus.dependencyPoliciesTitle}</p>
+            <p class="text-muted">{copy.systemStatus.dependencyPoliciesDescription}</p>
+          </div>
+          <p class="text-muted">
+            <strong>{runtimeConfig.operations.dependencyPolicies.length}</strong>
+          </p>
+        </div>
+        <div class="mt-3 overflow-x-auto">
+          <table class="min-w-full border-separate border-spacing-y-2">
+            <caption class="sr-only">{copy.systemStatus.dependencyPoliciesTitle}</caption>
+            <thead>
+              <tr class="text-left text-xs uppercase text-muted">
+                <th scope="col" class="pr-4 pb-1">{copy.systemStatus.dependencyPoliciesRoute}</th>
+                <th scope="col" class="pr-4 pb-1">{copy.systemStatus.dependencyPoliciesDependency}</th>
+                <th scope="col" class="pr-4 pb-1">{copy.systemStatus.dependencyPoliciesStrictMode}</th>
+                <th scope="col" class="pr-4 pb-1">{copy.systemStatus.dependencyPoliciesNonStrictMode}</th>
+                <th scope="col" class="pb-1">{copy.systemStatus.dependencyPoliciesRuntimeBehavior}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each runtimeConfig.operations.dependencyPolicies as policy}
+                <tr class="align-top" data-testid="dependency-policy-row">
+                  <th scope="row" class="panel-subtle pr-4 text-left font-semibold">
+                    {policy.route}
+                  </th>
+                  <td class="panel-subtle pr-4">
+                    <code>{policy.dependency}</code>
+                  </td>
+                  <td class="panel-subtle pr-4 text-body">{policy.strictMode}</td>
+                  <td class="panel-subtle pr-4 text-body">{policy.nonStrictMode}</td>
+                  <td class="panel-subtle text-body">{policy.runtimeBehavior}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {/if}
 
     {#if runtimeMetrics}
       {#if runtimeReport}

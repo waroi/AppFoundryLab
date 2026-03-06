@@ -13,6 +13,14 @@ cd frontend
 ../.toolchain/bun/bin/bun run test
 ```
 
+Linux icin Playwright bootstrap:
+
+```bash
+./scripts/bootstrap-playwright-linux.sh --frontend-dir frontend
+```
+
+Bu dosya varsa Playwright config'leri `frontend/.playwright-linux.env` degerlerini otomatik yukler; genelde tek seferlik host hazirligi yeterlidir.
+
 Mock-backed browser regresyonu:
 
 ```bash
@@ -75,13 +83,18 @@ cargo test
 
 - `smoke`: static build isaretcileri ve opsiyonel API kontrat probe'lari
 - `e2e`: selector, locale/theme screenshot'lari ve unhappy-path UI durumlari icin mock-backed regresyon
-- `e2e:live`: kullanicinin tarayicidan birebir tekrar edebilecegi Docker-backed admin login, runtime diagnostics ve trace lookup akisi
+- `e2e:live`: nightly veya on-demand release confidence icin kullanilan Docker-backed admin login, runtime diagnostics, trace lookup ve runtime knob gorunurlugu akisi
 - `go-test.sh`: `backend/go.mod` icindeki repo-local Go baseline'i ile calisan backend test suiti
 - `dev-up`: basari demeden once readiness ve bir authenticated admin smoke
 - `release-gate.sh full`: repo ici static kontroller, Go testleri, Rust testleri ve frontend build/smoke
+- `check-doc-drift.sh`: kanonik dokumanlar, `PROGRESS.md` ve stratejik faz ozeti ayni gercegi tasir
 
 ## 5. Guncel durum
 
 - Onceki toolchain, `SystemStatus` ve `ci-full` drift maddeleri kapatildi.
 - Dependency degradation kontrati artik [dependency-degradation-runbook.md](/mnt/d/w/AppFoundryLab/docs/dependency-degradation-runbook.md) icinde belgelenir ve `GET /api/v1/admin/runtime-config` uzerinden yayinlanir.
+- Runtime config ve admin diagnostics artik request logging trusted proxy CIDR'larini ve logger timing varsayilanlarini operator gorunurlugu icin yayinlar.
+- Browser regresyon zinciri keyboard/focus akisi, degraded admin diagnostics, runtime knob fallback'lari ve live-stack runtime knob gorunurlugunu kapsar.
+- `e2e:live`, tam Docker-backed stack'in daha yuksek zaman/maliyet/flake yuzeyi nedeniyle nightly veya on-demand lane olarak tutulur.
 - Halen acik repo backlog'un tek kanonik kaynagi `PROGRESS.md` dosyasidir.
+- Runtime knob gorunurlugu, browser coverage depth ve live smoke governance fazlari kapatildigi icin su anda aktif repo-owned faz yoktur.

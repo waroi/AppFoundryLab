@@ -21,6 +21,8 @@ Amaci yeni bir gelistiricinin stack'i yerelde kaldirmasi, tarayicidan dogrulamas
 ./scripts/dev-up.sh standard
 ```
 
+`bootstrap.sh` `.env`, gitignored `.env.docker.local` ve local dev cert'lerini uretir; `.env.docker` template olarak kalir.
+
 Varsayilan yerel adresler:
 - Frontend: `http://127.0.0.1:4321/`
 - Frontend health: `http://127.0.0.1:4321/healthz`
@@ -33,8 +35,8 @@ Varsayilan yerel adresler:
 ## First Browser Smoke
 
 1. `http://127.0.0.1:4321/` adresini acin.
-2. `admin` kullanicisini ve `./scripts/bootstrap.sh` cikisindaki veya `.env.docker.local` icindeki `BOOTSTRAP_ADMIN_PASSWORD` degerini kullanin.
-3. Giristen sonra `runtime-metrics-summary`, `trace-lookup-panel` ve request log satirlarinin yüklendigini dogrulayin.
+2. `admin` kullanicisini ve `./scripts/bootstrap.sh` cikisindaki veya yerelde uretilen `.env.docker.local` icindeki `BOOTSTRAP_ADMIN_PASSWORD` degerini kullanin.
+3. Giristen sonra `runtime-metrics-summary`, `runtime-knobs-panel`, `trace-lookup-panel` ve request log satirlarinin yuklendigini dogrulayin.
 
 Gercek stack browser smoke:
 
@@ -49,6 +51,14 @@ Mock-backed hizli UI regresyonu:
 cd frontend
 ../.toolchain/bun/bin/bun run e2e
 ```
+
+Linux icinde Playwright kutuphaneleri eksikse bir kez su komutu calistirin:
+
+```bash
+./scripts/bootstrap-playwright-linux.sh --frontend-dir frontend
+```
+
+Sonraki `bun run e2e` ve `bun run e2e:live` kosulari `frontend/.playwright-linux.env` dosyasini otomatik yukler.
 
 ## Validation Modes
 
@@ -95,3 +105,5 @@ Core docs:
 - `docs/gelistirmePlanı.md` stratejik faz sirasini tutar; canli backlog tutmaz.
 - Advanced ops yuzeyi (release evidence, attestation, observability overlays, single-host deploy) starter'in ustune gelen opsiyonel katmandir.
 - `dev-up` artik yalnizca process liveness degil; readiness, logger erisimi ve bir authenticated admin smoke ile basari raporlar.
+- `GET /api/v1/admin/runtime-config` ve admin diagnostics paneli artik dependency matrix'in yaninda trusted proxy CIDR'lari ile logger timing knob'larini da yayinlar.
+- `e2e:live` tam Docker-backed smoke oldugu icin nightly veya on-demand release-confidence lane'i olarak konumlandirilir; branch-protection check'i degildir.

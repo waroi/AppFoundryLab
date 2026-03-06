@@ -19,3 +19,7 @@ This matrix maps delivery-time governance items to the regular CI workflow.
 - `boilerplate-quality-report`
 - `compare-k6-summary-vs-base-pr`
 - `release-evidence-harvest`
+
+Notes:
+- Delivery-time merge gates intentionally exclude `live-stack-browser-smoke-review`; that evidence belongs to nightly or on-demand release confidence.
+- Regular branch protection should stay focused on fast CI, contract coverage, and governance drift checks.

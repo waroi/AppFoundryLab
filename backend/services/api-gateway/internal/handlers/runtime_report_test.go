@@ -18,7 +18,19 @@ func TestRuntimeReportHandler(t *testing.T) {
 	res := httptest.NewRecorder()
 
 	RuntimeReportHandler(
-		RuntimeConfigSummary{Profile: "standard"},
+		RuntimeConfigSummary{
+			Profile: "standard",
+			Operations: RuntimeOperationsSummary{
+				RequestLogging: RuntimeRequestLoggingSummary{
+					TrustedProxyCIDRs: []string{"127.0.0.1/32"},
+				},
+				LoggerTiming: RuntimeLoggerTimingSummary{
+					HealthTimeoutMS:                     1500,
+					IngestTimestampMaxAgeSeconds:        300,
+					IngestTimestampMaxFutureSkewSeconds: 5,
+				},
+			},
+		},
 		store,
 		RuntimeMetricsOptions{},
 	).ServeHTTP(res, req)
@@ -39,6 +51,9 @@ func TestRuntimeReportHandler(t *testing.T) {
 	}
 	if payload.Config.Profile != "standard" {
 		t.Fatalf("expected profile standard, got %s", payload.Config.Profile)
+	}
+	if got := payload.Config.Operations.RequestLogging.TrustedProxyCIDRs[0]; got != "127.0.0.1/32" {
+		t.Fatalf("expected trusted proxy cidr in runtime report, got %q", got)
 	}
 	if payload.Metrics.RequestsTotal != 1 {
 		t.Fatalf("expected requestsTotal=1, got %d", payload.Metrics.RequestsTotal)

@@ -52,6 +52,7 @@ new_fixture() {
   cp "$ROOT_DIR/scripts/verify-release-ledger-attestation.sh" "$dir/scripts/verify-release-ledger-attestation.sh"
   cp "$ROOT_DIR/scripts/bootstrap-playwright-linux.sh" "$dir/scripts/bootstrap-playwright-linux.sh"
   cp "$ROOT_DIR/scripts/check-s3-lifecycle-policy.sh" "$dir/scripts/check-s3-lifecycle-policy.sh"
+  cp "$ROOT_DIR/scripts/check-doc-drift.sh" "$dir/scripts/check-doc-drift.sh"
   cp "$ROOT_DIR/scripts/generate-operator-mtls-certs.sh" "$dir/scripts/generate-operator-mtls-certs.sh"
   cp "$ROOT_DIR/scripts/check-operator-mtls-readiness.sh" "$dir/scripts/check-operator-mtls-readiness.sh"
   cp "$ROOT_DIR/scripts/rehearse-release-evidence-local.sh" "$dir/scripts/rehearse-release-evidence-local.sh"
@@ -78,6 +79,116 @@ new_fixture() {
   echo "$dir"
 }
 
+new_doc_drift_fixture() {
+  local dir
+  dir="$(mktemp -d)"
+  mkdir -p "$dir/scripts" "$dir/docs/en" "$dir/docs/tr" "$dir/frontend/e2e" "$dir/.github/workflows"
+  cp "$ROOT_DIR/scripts/check-doc-drift.sh" "$dir/scripts/check-doc-drift.sh"
+  chmod +x "$dir/scripts/check-doc-drift.sh"
+
+  cat > "$dir/README.md" <<'EOF'
+# AppFoundryLab
+
+- `e2e`
+- `e2e:live`
+EOF
+  cat > "$dir/docs/appfoundrylab-teknik-analiz.md" <<'EOF'
+# Teknik Analiz
+EOF
+  cat > "$dir/docs/gelistirmePlanı.md" <<'EOF'
+# Gelistirme Plani
+Acik backlog'un kanonik kaynagi PROGRESS.md dosyasidir.
+Sonraki aktif hedef: Faz 1 - Canonical Doc Drift
+EOF
+  cat > "$dir/PROGRESS.md" <<'EOF'
+# PROGRESS
+Aktif faz: Faz 1 - Canonical Doc Drift
+EOF
+  cat > "$dir/docs/deployment-strategy.md" <<'EOF'
+# Deployment Strategy
+
+Use `archive-runtime-report.sh --password-stdin`.
+Require `RELEASE_EVIDENCE_AUDIT_TARGET`.
+Require `RELEASE_LEDGER_ATTESTATION_KEY`.
+EOF
+  cat > "$dir/docs/en/deployment.md" <<'EOF'
+# Deployment
+
+Use `archive-runtime-report.sh --password-stdin`.
+Require `RELEASE_EVIDENCE_AUDIT_TARGET`.
+Require `RELEASE_LEDGER_ATTESTATION_KEY`.
+EOF
+  cat > "$dir/docs/tr/deployment.md" <<'EOF'
+# Deployment
+
+Use `archive-runtime-report.sh --password-stdin`.
+Require `RELEASE_EVIDENCE_AUDIT_TARGET`.
+Require `RELEASE_LEDGER_ATTESTATION_KEY`.
+EOF
+  cat > "$dir/docs/en/operations.md" <<'EOF'
+# Operations
+
+Require `RELEASE_EVIDENCE_AUDIT_TARGET`.
+Require `RELEASE_LEDGER_ATTESTATION_KEY`.
+EOF
+  cat > "$dir/docs/tr/operasyonlar.md" <<'EOF'
+# Operasyonlar
+
+Require `RELEASE_EVIDENCE_AUDIT_TARGET`.
+Require `RELEASE_LEDGER_ATTESTATION_KEY`.
+EOF
+  cat > "$dir/docs/en/testing-and-quality.md" <<'EOF'
+# Testing
+
+- `e2e`
+- `e2e:live`
+EOF
+  cat > "$dir/docs/en/quick-start.md" <<'EOF'
+# Quick Start
+
+- `e2e`
+- `e2e:live`
+EOF
+  cat > "$dir/docs/tr/test-ve-kalite.md" <<'EOF'
+# Test
+
+- `e2e`
+- `e2e:live`
+EOF
+  cat > "$dir/docs/tr/hizli-baslangic.md" <<'EOF'
+# Hizli Baslangic
+
+- `e2e`
+- `e2e:live`
+EOF
+  cat > "$dir/scripts/README.md" <<'EOF'
+# Scripts
+
+Use `archive-runtime-report.sh --password-stdin`.
+EOF
+  cat > "$dir/frontend/e2e/live-stack.spec.ts" <<'EOF'
+export {};
+EOF
+  echo "$dir"
+}
+
+new_release_policy_fixture() {
+  local dir
+  dir="$(mktemp -d)"
+  mkdir -p "$dir/scripts" "$dir/docs" "$dir/.github/workflows"
+  cp "$ROOT_DIR/scripts/check-release-policy-drift.sh" "$dir/scripts/check-release-policy-drift.sh"
+  cp "$ROOT_DIR/docs/release-policy.md" "$dir/docs/release-policy.md"
+  cp "$ROOT_DIR/docs/release-checklist.json" "$dir/docs/release-checklist.json"
+  cp "$ROOT_DIR/docs/delivery-workflow-governance-matrix.md" "$dir/docs/delivery-workflow-governance-matrix.md"
+  cp "$ROOT_DIR/docs/nightly-workflow-governance-matrix.md" "$dir/docs/nightly-workflow-governance-matrix.md"
+  cp "$ROOT_DIR/docs/branch-protection-required-checks.md" "$dir/docs/branch-protection-required-checks.md"
+  cp "$ROOT_DIR/.github/workflows/appfoundrylab-ci.yml" "$dir/.github/workflows/appfoundrylab-ci.yml"
+  cp "$ROOT_DIR/.github/workflows/release-gate-full-nightly.yml" "$dir/.github/workflows/release-gate-full-nightly.yml"
+  cp "$ROOT_DIR/.github/workflows/perf-extended-nightly.yml" "$dir/.github/workflows/perf-extended-nightly.yml"
+  chmod +x "$dir/scripts/check-release-policy-drift.sh"
+  echo "$dir"
+}
+
 new_fakebin() {
   local dir
   dir="$(mktemp -d)"
@@ -98,16 +209,20 @@ test_bootstrap_standard_generates_credentials() {
   assert_contains "$fixture/.env" "LOCAL_AUTH_MODE=generated"
   assert_contains "$fixture/.env.docker.local" "LOCAL_AUTH_MODE=generated"
 
-  local admin_password user_password docker_admin docker_user
+  local admin_password user_password docker_admin docker_user backup_passphrase docker_backup_passphrase
   admin_password="$(env_value "$fixture/.env" "BOOTSTRAP_ADMIN_PASSWORD")"
   user_password="$(env_value "$fixture/.env" "BOOTSTRAP_USER_PASSWORD")"
   docker_admin="$(env_value "$fixture/.env.docker.local" "BOOTSTRAP_ADMIN_PASSWORD")"
   docker_user="$(env_value "$fixture/.env.docker.local" "BOOTSTRAP_USER_PASSWORD")"
+  backup_passphrase="$(env_value "$fixture/.env" "BACKUP_ENCRYPTION_PASSPHRASE")"
+  docker_backup_passphrase="$(env_value "$fixture/.env.docker.local" "BACKUP_ENCRYPTION_PASSPHRASE")"
 
   [[ "$admin_password" != "admin_dev_password" ]] || fail "standard profile should not keep default admin password"
   [[ "$user_password" != "developer_dev_password" ]] || fail "standard profile should not keep default user password"
   [[ "$admin_password" == "$docker_admin" ]] || fail "admin password should sync across env files"
   [[ "$user_password" == "$docker_user" ]] || fail "user password should sync across env files"
+  [[ -n "$backup_passphrase" ]] || fail "backup passphrase should be generated for standard profile"
+  [[ "$backup_passphrase" == "$docker_backup_passphrase" ]] || fail "backup passphrase should sync across env files"
 }
 
 test_bootstrap_minimal_keeps_demo_credentials() {
@@ -392,6 +507,7 @@ EOF
     PATH="$fakebin:$PATH" \
       DEPLOY_MODE=image \
       ENABLE_OPERATOR_PROMETHEUS_ACCESS=true \
+      PROMETHEUS_OPERATOR_PASSWORD_HASH=hashed-secret \
       ./scripts/deploy-single-host.sh pull ./.env.docker.local >/tmp/test-dev-scripts-deploy-operator-observability.out
   )
 
@@ -454,6 +570,7 @@ EOF
 
   (
     cd "$fixture"
+    BACKUP_ENCRYPTION_PASSPHRASE=test-passphrase \
     ./scripts/backup-single-host.sh ./.env.single-host >/tmp/test-dev-scripts-backup-bundle.out
   )
 
@@ -465,6 +582,36 @@ EOF
   assert_file_exists "$fixture/artifacts/backups/bundles/backup-catalog.json"
   assert_contains "$fixture/artifacts/backups/bundles/backup-catalog.json" "\"bundleName\": \"$(basename "$bundle_dir")\""
   assert_contains "$fixture/artifacts/backups/bundles/latest-bundle.txt" "$(basename "$bundle_dir")"
+}
+
+test_backup_single_host_requires_real_passphrase_for_single_host_env() {
+  local fixture output
+  fixture="$(new_fixture)"
+  cp "$fixture/.env.single-host.example" "$fixture/.env.single-host"
+  output="$fixture/backup-passphrase.out"
+
+  cat > "$fixture/scripts/backup-postgres.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p "$2"
+printf 'postgres backup\n' > "$2/postgres-20260301T000000Z.sql"
+EOF
+  cat > "$fixture/scripts/backup-mongo.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p "$2"
+printf 'mongo backup\n' > "$2/mongo-20260301T000000Z.archive.gz"
+EOF
+  chmod +x "$fixture/scripts/backup-postgres.sh" "$fixture/scripts/backup-mongo.sh"
+
+  if (
+    cd "$fixture"
+    ./scripts/backup-single-host.sh ./.env.single-host >"$output" 2>&1
+  ); then
+    fail "single-host backup should reject placeholder passphrases"
+  fi
+
+  assert_contains "$output" "BACKUP_ENCRYPTION_PASSPHRASE must be set to a real value for single-host backup bundles"
 }
 
 test_backup_single_host_versioned_sync_writes_remote_catalog() {
@@ -791,6 +938,127 @@ EOF
   assert_file_exists "$cert_dir/server.crt"
   assert_file_exists "$cert_dir/client.crt"
   assert_file_exists "$cert_dir/manifest.env"
+}
+
+test_check_doc_drift_fixture_passes_for_synced_docs() {
+  local fixture output
+  fixture="$(new_doc_drift_fixture)"
+  output="$fixture/check-doc-drift-pass.out"
+
+  (
+    cd "$fixture"
+    GIT_BIN=__missing_git__ \
+      DOC_DRIFT_CHANGED_FILES="scripts/dev-up.sh,README.md,docs/appfoundrylab-teknik-analiz.md,docs/gelistirmePlanı.md,PROGRESS.md" \
+      ./scripts/check-doc-drift.sh --mode strict >"$output"
+  )
+
+  assert_contains "$output" "doc drift check passed"
+}
+
+test_check_doc_drift_fixture_fails_semantic_regression() {
+  local fixture output
+  fixture="$(new_doc_drift_fixture)"
+  output="$fixture/check-doc-drift-fail.out"
+  cat > "$fixture/docs/en/testing-and-quality.md" <<'EOF'
+# Testing
+
+- `e2e`
+- SystemStatus.svelte is still too large and needs decomposition
+EOF
+
+  if (
+    cd "$fixture"
+    GIT_BIN=__missing_git__ \
+      DOC_DRIFT_CHANGED_FILES="scripts/dev-up.sh,README.md,docs/appfoundrylab-teknik-analiz.md,docs/gelistirmePlanı.md,PROGRESS.md" \
+      ./scripts/check-doc-drift.sh --mode strict >"$output" 2>&1
+  ); then
+    fail "doc drift fixture should fail on semantic regression"
+  fi
+
+  assert_contains "$output" "semantic doc truth checks failed"
+  assert_contains "$output" "docs/en/testing-and-quality.md"
+}
+
+test_check_doc_drift_fixture_fails_phase_drift() {
+  local fixture output
+  fixture="$(new_doc_drift_fixture)"
+  output="$fixture/check-doc-drift-phase-fail.out"
+  cat > "$fixture/docs/gelistirmePlanı.md" <<'EOF'
+# Gelistirme Plani
+Acik backlog'un kanonik kaynagi PROGRESS.md dosyasidir.
+Sonraki aktif hedef: Faz 9 - Drifted Phase
+EOF
+
+  if (
+    cd "$fixture"
+    GIT_BIN=__missing_git__ \
+      DOC_DRIFT_CHANGED_FILES="scripts/dev-up.sh,README.md,docs/appfoundrylab-teknik-analiz.md,docs/gelistirmePlanı.md,PROGRESS.md" \
+      ./scripts/check-doc-drift.sh --mode strict >"$output" 2>&1
+  ); then
+    fail "doc drift fixture should fail on active phase drift"
+  fi
+
+  assert_contains "$output" "active phase drift with PROGRESS.md"
+}
+
+test_check_doc_drift_fixture_fails_duplicate_progress_heading() {
+  local fixture output
+  fixture="$(new_doc_drift_fixture)"
+  output="$fixture/check-doc-drift-duplicate-progress.out"
+  cat >> "$fixture/PROGRESS.md" <<'EOF'
+
+# PROGRESS
+Aktif faz: Faz 1 - Canonical Doc Drift
+EOF
+
+  if (
+    cd "$fixture"
+    GIT_BIN=__missing_git__ \
+      DOC_DRIFT_CHANGED_FILES="scripts/dev-up.sh,README.md,docs/appfoundrylab-teknik-analiz.md,docs/gelistirmePlanı.md,PROGRESS.md" \
+      ./scripts/check-doc-drift.sh --mode strict >"$output" 2>&1
+  ); then
+    fail "doc drift fixture should fail on duplicate PROGRESS headings"
+  fi
+
+  assert_contains "$output" "expected exactly one '# PROGRESS' heading"
+}
+
+test_check_release_policy_drift_fixture_passes() {
+  local fixture output
+  fixture="$(new_release_policy_fixture)"
+  output="$fixture/check-release-policy-drift-pass.out"
+
+  (
+    cd "$fixture"
+    ./scripts/check-release-policy-drift.sh >"$output"
+  )
+
+  assert_contains "$output" "release policy drift check passed"
+}
+
+test_check_release_policy_drift_fixture_fails_live_smoke_governance_gap() {
+  local fixture output
+  fixture="$(new_release_policy_fixture)"
+  output="$fixture/check-release-policy-drift-fail.out"
+
+  python3 - "$fixture/docs/release-policy.md" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+text = text.replace("e2e:live", "live-browser-smoke", 1)
+path.write_text(text, encoding="utf-8")
+PY
+
+  if (
+    cd "$fixture"
+    ./scripts/check-release-policy-drift.sh >"$output" 2>&1
+  ); then
+    fail "release policy drift fixture should fail when live smoke governance text drifts"
+  fi
+
+  assert_contains "$output" "release policy missing e2e:live governance note"
 }
 
 test_bootstrap_playwright_linux_user_mode_creates_env_file() {
@@ -1234,6 +1502,8 @@ main() {
   test_deploy_single_host_operator_mtls_overlay_uses_proxy_compose_file
   echo "running: backup bundle"
   test_backup_single_host_creates_bundle_manifest
+  echo "running: backup passphrase guard"
+  test_backup_single_host_requires_real_passphrase_for_single_host_env
   echo "running: backup versioned sync"
   test_backup_single_host_versioned_sync_writes_remote_catalog
   echo "running: backup s3 sync"
@@ -1256,6 +1526,18 @@ main() {
   test_release_ledger_attestation_sign_and_verify
   echo "running: operator mtls certs"
   test_operator_mtls_cert_generation_and_readiness_check
+  echo "running: check doc drift pass"
+  test_check_doc_drift_fixture_passes_for_synced_docs
+  echo "running: check doc drift fail"
+  test_check_doc_drift_fixture_fails_semantic_regression
+  echo "running: check doc drift phase fail"
+  test_check_doc_drift_fixture_fails_phase_drift
+  echo "running: check doc drift duplicate progress"
+  test_check_doc_drift_fixture_fails_duplicate_progress_heading
+  echo "running: release policy drift pass"
+  test_check_release_policy_drift_fixture_passes
+  echo "running: release policy drift fail"
+  test_check_release_policy_drift_fixture_fails_live_smoke_governance_gap
   echo "running: playwright bootstrap"
   test_bootstrap_playwright_linux_user_mode_creates_env_file
   echo "running: playwright bootstrap fallback"

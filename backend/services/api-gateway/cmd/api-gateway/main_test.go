@@ -3,6 +3,9 @@ package main
 import (
 	"os"
 	"testing"
+	"time"
+
+	"github.com/example/appfoundrylab/backend/pkg/runtimeknobs"
 )
 
 func TestResolveLegacyAPIEnabled(t *testing.T) {
@@ -56,6 +59,8 @@ func TestResolveRedisLimiterFailureMode(t *testing.T) {
 }
 
 func TestValidateLoggerConfig(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret")
+	t.Setenv("WORKER_GRPC_TLS_MODE", "insecure")
 	t.Setenv("LOGGER_ENDPOINT", "")
 	t.Setenv("LOGGER_SHARED_SECRET", "")
 	t.Setenv("LOGGER_ALLOW_UNSIGNED_INGEST", "false")
@@ -113,5 +118,52 @@ func TestResolveLoadShedExemptPrefixes(t *testing.T) {
 	got = resolveLoadShedExemptPrefixes()
 	if len(got) < 2 || got[0] != "/health" || got[1] != "/metrics" {
 		t.Fatalf("expected default prefixes [/health /metrics], got %v", got)
+	}
+}
+
+func TestDiagnosticsSummaryIncludesRuntimeKnobs(t *testing.T) {
+	t.Setenv(runtimeknobs.RequestLogTrustedProxyCIDRsEnv, "127.0.0.1,10.0.0.0/8,invalid")
+	t.Setenv("LOGGER_HEALTH_TIMEOUT_MS", "1750")
+	t.Setenv("LOGGER_INGEST_TIMESTAMP_MAX_AGE_SECONDS", "420")
+	t.Setenv("LOGGER_INGEST_TIMESTAMP_MAX_FUTURE_SKEW_SECONDS", "9")
+
+	summary := diagnosticsSummary(runtimeConfig{
+		RuntimeProfile:             "secure",
+		LegacyAPIEnabled:           true,
+		LegacyDeprecationDate:      "Fri, 27 Feb 2026 00:00:00 GMT",
+		LegacySunsetDate:           "Tue, 30 Jun 2026 23:59:59 GMT",
+		AuthRateLimitPerMinute:     30,
+		APIRateLimitPerMinute:      120,
+		MaxInFlightRequests:        64,
+		LoadShedExemptPrefixes:     []string{"/health"},
+		ReadyCacheTTL:              1500 * time.Millisecond,
+		ReadyStaleIfErrorWindow:    5 * time.Second,
+		StrictDependencies:         true,
+		LoggerAllowUnsignedIngest:  false,
+		LoggerSharedSecretSet:      true,
+		LocalAuthMode:              "generated",
+		WorkerTLSMode:              "mtls",
+		WorkerServerName:           "calculator.internal",
+		AutoMigrate:                false,
+		RateLimitStore:             "redis",
+		RedisFailureMode:           "closed",
+		RuntimeDiagnosticsCacheTTL: 2500 * time.Millisecond,
+		IncidentEventSink:          "logger",
+		IncidentEventInterval:      10 * time.Second,
+		IncidentEventDedupeWindow:  5 * time.Minute,
+		IncidentEventRetentionDays: 30,
+	})
+
+	if got := summary.Operations.RequestLogging.TrustedProxyCIDRs; len(got) != 2 || got[0] != "127.0.0.1/32" || got[1] != "10.0.0.0/8" {
+		t.Fatalf("unexpected trusted proxy cidrs: %v", got)
+	}
+	if got := summary.Operations.LoggerTiming.HealthTimeoutMS; got != 1750 {
+		t.Fatalf("expected logger health timeout 1750ms, got %d", got)
+	}
+	if got := summary.Operations.LoggerTiming.IngestTimestampMaxAgeSeconds; got != 420 {
+		t.Fatalf("expected logger ingest max age 420s, got %d", got)
+	}
+	if got := summary.Operations.LoggerTiming.IngestTimestampMaxFutureSkewSeconds; got != 9 {
+		t.Fatalf("expected logger ingest future skew 9s, got %d", got)
 	}
 }

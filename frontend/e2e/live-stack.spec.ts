@@ -23,8 +23,11 @@ const envPath =
   process.env.E2E_LIVE_ENV_FILE ?? path.resolve(process.cwd(), "..", ".env.docker.local");
 const envFile = parseEnvFile(envPath);
 const adminUser = process.env.E2E_LIVE_ADMIN_USER ?? envFile.BOOTSTRAP_ADMIN_USER ?? "admin";
-const adminPassword =
-  process.env.E2E_LIVE_ADMIN_PASSWORD ?? envFile.BOOTSTRAP_ADMIN_PASSWORD ?? "admin_dev_password";
+const adminPassword = process.env.E2E_LIVE_ADMIN_PASSWORD ?? envFile.BOOTSTRAP_ADMIN_PASSWORD;
+
+if (!adminPassword) {
+  throw new Error("E2E_LIVE_ADMIN_PASSWORD or BOOTSTRAP_ADMIN_PASSWORD must be set");
+}
 
 test("real stack admin flow is usable", async ({ page }) => {
   await page.goto("/");
@@ -37,6 +40,11 @@ test("real stack admin flow is usable", async ({ page }) => {
   await page.getByTestId("login-submit").click();
 
   await expect(page.getByTestId("auth-role")).toHaveAttribute("data-role", "admin");
+  await expect(page.getByTestId("runtime-knobs-panel")).toBeVisible();
+  await expect(page.getByTestId("runtime-knobs-panel")).toContainText(
+    "REQUEST_LOG_TRUSTED_PROXY_CIDRS",
+  );
+  await expect(page.getByTestId("dependency-policies-panel")).toBeVisible();
   await expect(page.getByTestId("runtime-metrics-summary")).toBeVisible();
   await expect(page.getByTestId("trace-lookup-panel")).toBeVisible();
   await expect(page.getByTestId("request-log-row").first()).toBeVisible();
