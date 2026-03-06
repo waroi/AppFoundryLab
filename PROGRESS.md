@@ -72,6 +72,24 @@
 - **Sorun**: Varsayilan sertifika yollari `backend/infrastructure/certs/dev/...` seklinde goreceli. Calisma dizinine bagli.
 - **Cozum**: Mutlak yol kullan veya sertifika bulunamazsa acik hata mesaji ver.
 
+### 1.7 PostgreSQL Baglantilari TLS Kullanmiyor
+- **Dosya**: `backend/services/api-gateway/internal/database/postgres.go:38`
+- **Sorun**: DSN'de `sslmode=disable` sabit olarak tanimlanmis; PostgreSQL baglantilari sifreli degil.
+- **Etki**: Agdaki dinleyici gizli verileri (sorgular, kimlik bilgileri) okuyabilir.
+- **Cozum**: `sslmode=disable` yerine `sslmode=verify-full` veya en azindan `sslmode=require` kullan; prod icin CA sertifikasi zorunlu kilsin.
+
+### 1.8 Sifre Karsilastirmasinda Timing Attack Acigi
+- **Dosya**: `backend/services/api-gateway/internal/handlers/auth.go:79-85`
+- **Sorun**: `resolveRole()` icinde `username == adminUser && password == adminPass` karsilastirmasi `==` operatoru ile yapiliyor. Go'nun string karsilastirmasi sabit-zamanli degil; yanit suresindeki farklarla sifre uzunlugu/ici sizdirilebilir.
+- **Etki**: Timing saldirisi ile kullanici adi ve sifre bilgisi kismi olarak sizdirilebilir.
+- **Cozum**: `crypto/subtle.ConstantTimeCompare` kullan.
+
+### 1.9 CSP Header'i localhost:8080 Hardcode Ediyor
+- **Dosya**: `backend/services/api-gateway/internal/middleware/security_headers.go:10`
+- **Sorun**: `Content-Security-Policy: default-src 'self'; connect-src 'self' http://localhost:8080` -- gelistirme URL'si uretim ortamina gidiyor.
+- **Etki**: Uretimde CSP'nin `connect-src` kismi yanlis; tarayici API isteklerini engelleyebilir veya beklenmedik host'a izin verir.
+- **Cozum**: `ALLOWED_ORIGINS` cevre degiskeninden dinamik olarak uret.
+
 ---
 
 ## FAZ 2 -- Hata Yonetimi ve Dayaniklilik (Oncelik: Yuksek)
@@ -97,15 +115,31 @@
 - **Etki**: Baslangicta gecici bir sorun olursa (DNS, ag gecikmesi) uygulama yeniden baslatilana kadar DB'ye eriseemez.
 - **Cozum**: `sync.Once` yerine yeniden deneme mekanizmali singleton kullan veya `MustConnect` kalibina gec.
 
-### 2.5 Circuit Breaker Failure Counter Sifirlanmiyor
+### 2.5 Incident Monitor HTTP Cagrisi Mutex Altinda Yapiliyor
+- **Dosya**: `backend/services/api-gateway/internal/incidents/monitor.go:157-268`
+- **Sorun**: `process()` fonksiyonu `m.mu.Lock()` tutarken `dispatchEvent()` cagiriyor; `dispatchEvent()` icerisinde logger ve webhook'a senkron HTTP istekleri yapiliyor. Logger timeout'u 1500ms oldugundan mutex her alert dispatch'i icin bu sure boyunca kilitli kaliyor.
+- **Etki**: Cok sayida alert ayni anda tetiklenirse dispatch islemi seriallesmis HTTP istekleriyle yavaslar; monitor'un olasi genislemelerinde deadlock riski dogabilir.
+- **Cozum**: Dispatch edilecek olaylari mutex disinda bir slice'a topla, mutexten cikarken dispatch et.
+
+### 2.6 Users Handler context.Background() Kullanimi
+- **Dosya**: `backend/services/api-gateway/internal/handlers/users.go:23`
+- **Sorun**: `context.WithTimeout(context.Background(), 3*time.Second)` -- istemci iptal sinyalini yok sayar. Ayni sorun health.go:116'da da mevcut (2.3).
+- **Cozum**: `r.Context()` uzerinden turetilmis context kullan.
+
+### 2.7 Circuit Breaker Failure Counter Sifirlanmiyor
 - **Dosya**: `frontend/src/lib/api/fetcher.ts:94-100`
 - **Sorun**: `failureCount` yalnizca basari durumunda sifirlanir; zamana bagli pencere yok. Uzun sureli sayfalarda saatler onceki hatalar birikerek circuit'i acar.
 - **Cozum**: Zaman pencereli (orn. son 5 dakika) hata sayimi uygula.
 
-### 2.6 Frontend Validator Array Icerikleri Dogrulanmiyor
+### 2.8 Frontend Validator Array Icerikleri Dogrulanmiyor
 - **Dosya**: `frontend/src/lib/api/validators.ts` (birden fazla satir)
 - **Sorun**: `Array.isArray()` kontrolleri array icindeki elemanlarin tipini dogrulamiyor. Ornegin `loadShedExemptPrefixes` array icindeki degerlerin `string` olup olmadigi kontrol edilmiyor.
 - **Cozum**: Array elemanlarini tip kontrolunden gecir.
+
+### 2.9 Frontend JWT Token Suresi Dolunca Sessiz Hata
+- **Dosya**: `frontend/src/components/Interactive/SystemStatus.svelte:91`
+- **Sorun**: `token` memory'de saklanir ancak JWT suresi dolup dolmadigina bakilmaz. Token expiry oldugunda API 401 doner; kullanici "invalid_token" hatasini gorur ama otomatik yeniden giris tetiklenmez.
+- **Cozum**: Token claims'inden `expiresIn` alanini kullanarak expire sure kontrolu ekle; suresi dolan token icin otomatik logout veya uyari goster.
 
 ---
 
@@ -143,6 +177,18 @@
 - **Dosya**: `frontend/src/lib/ui/preferences.ts:61`
 - **Sorun**: Tema `localStorage`'a kaydediliyor ancak dil tercihi kaydedilmiyor; sayfa yenilendiginde sifirlanir.
 - **Cozum**: Dil tercihini de `localStorage`'a kaydet.
+
+### 3.7 Fibonacci N Siniri API Katmanlari Arasinda Tutarsiz
+- **Dosyalar**: `backend/services/api-gateway/internal/handlers/compute.go:34`, `backend/core/calculator/src/main.rs:37`
+- **Sorun**: API Gateway n <= 1000 kabul ediyor (`fibonacciMaxN = 1000`); ancak Rust gRPC servisi n > 93 icin `InvalidArgument` donuyor. 94-1000 arasindaki n degerleri icin istemci dogru 400 Bad Request yerine opaque bir 502 Bad Gateway aliyor.
+- **Etki**: Kotu hata deneyimi ve yaniltici HTTP durum kodu; debug edilmesi guc.
+- **Cozum**: API Gateway seviyesinde de n <= 93 sinirini validate et, veya Rust servisinin limitini 1000'e cikar ve dogrulama sorumluluklarini belgele.
+
+### 3.8 CORS Preflight Max-Age Eksik
+- **Dosya**: `backend/services/api-gateway/internal/middleware/cors.go:26-27`
+- **Sorun**: Preflight yaniti `Access-Control-Max-Age` header'i icermiyor. Tarayicilar varsayilan olarak cok kisa cache suresine (Chrome: 2s, Firefox: 5s) donuyor; her CORS isteği oncesinde tekrar OPTIONS yapiliyor.
+- **Etki**: Yuksek trafikte gereksiz OPTIONS istekleri performansi dusuruyor.
+- **Cozum**: `Access-Control-Max-Age: 86400` (1 gun) ekle.
 
 ---
 
@@ -243,12 +289,12 @@
 | Kategori | Bulgu Sayisi | Tamamlanan |
 |---|---|---|
 | Kritik (Faz 0) | 2 | 2 |
-| Guvenlik (Faz 1) | 6 | 0 |
-| Hata Yonetimi (Faz 2) | 6 | 0 |
-| Kod Kalitesi (Faz 3) | 6 | 0 |
+| Guvenlik (Faz 1) | 9 | 0 |
+| Hata Yonetimi (Faz 2) | 9 | 0 |
+| Kod Kalitesi (Faz 3) | 8 | 0 |
 | Altyapi/DevOps (Faz 4) | 9 | 0 |
 | Test/Dokumantasyon (Faz 5) | 5 | 0 |
-| **Toplam** | **34** | **2** |
+| **Toplam** | **42** | **2** |
 
 ---
 
