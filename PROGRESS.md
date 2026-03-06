@@ -180,6 +180,21 @@
 - **Sorun**: Frontend servisi hem `backend_internal` hem `edge` aginda. Frontend'in veritabani agina dogrudan erisimi olmamali.
 - **Cozum**: Frontend'i yalnizca `edge` agina bagla; API Gateway uzerinden erisim sagla.
 
+### 4.7 Docker Container Guvenlik Sertlestirme Eksik
+- **Dosya**: `docker-compose.yml` (tum servisler)
+- **Sorun**: Ana compose dosyasinda `cap_drop: [ALL]`, `read_only: true`, `security_opt: [no-new-privileges:true]` yok. Starter template (`starter/clean-service-template/docker-compose.security.yml`) bu direktifleri iceriyor ancak ana projeye uygulanmamis.
+- **Cozum**: Tum uygulama servislerine guvenlik direktiflerini ekle.
+
+### 4.8 Backup Sifreleme Parolasi Bos
+- **Dosyalar**: `.env.docker:88`, `.env.docker.local:80`
+- **Sorun**: `BACKUP_ENCRYPTION_PASSPHRASE=` bos; yedekleme sifreleme olmadan calisir.
+- **Cozum**: Bootstrap scriptinde rastgele deger olustur; backup scriptinde bos parola uyarisi ekle.
+
+### 4.9 Prometheus Operator Parola Hash Dogrulamasi Eksik
+- **Dosyalar**: `.env.docker:96`, `deploy/observability/Caddyfile.prometheus-operator:13`
+- **Sorun**: `PROMETHEUS_OPERATOR_PASSWORD_HASH=` bos; Caddy basic_auth bos hash ile baslatilirsa guvenlik acigi olusabilir.
+- **Cozum**: Operator erisimi aktifse hash dogrulamasi zorunlu kilinin.
+
 ---
 
 ## FAZ 5 -- Test ve Dokumantasyon (Oncelik: Dusuk)
@@ -231,9 +246,9 @@
 | Guvenlik (Faz 1) | 6 | 0 |
 | Hata Yonetimi (Faz 2) | 6 | 0 |
 | Kod Kalitesi (Faz 3) | 6 | 0 |
-| Altyapi/DevOps (Faz 4) | 6 | 0 |
+| Altyapi/DevOps (Faz 4) | 9 | 0 |
 | Test/Dokumantasyon (Faz 5) | 5 | 0 |
-| **Toplam** | **31** | **2** |
+| **Toplam** | **34** | **2** |
 
 ---
 
@@ -253,3 +268,10 @@ Proje genel olarak olgun bir boilerplate yapisina sahip:
 - CI pipeline kapsamli: lint, type check, build, test, security scan, SBOM, perf benchmark
 - Runtime diagnostik paneli admin icin kapsamli operasyonel gorunum sagliyor
 - Coklu dil destegi (EN/TR) tutarli anahtar yapisi ile uygulanmis
+- Docker compose'da tum veritabani portlari `127.0.0.1` bind ile localhost'a sinirlandirilmis
+- Single-host modunda `backend_internal` agi `internal: true` ile dogru izole edilmis
+- Dev sertifikalari `.gitignore` ile VCS disinda tutulmus; `certs-dev.sh` ile otomatik uretiliyor
+- Deployment pipeline release evidence, ledger attestation ve SBOM uretimi iceriyor
+- Backup/restore altyapisi drill otomasyonu ile test edilebilir durumda
+- Non-root container calistirma tum uygulama servislerinde uygulanmis
+- Post-deploy kontrol scripti frontend, API ve logger endpoint'lerini dogruluyor
