@@ -1,35 +1,40 @@
 # Project Analysis
 
-## Current state
+## Current position
 
-The repository now has a coherent single-host operations story: checkout deploy, immutable image deploy, release catalog and ledger tracking, encrypted off-host backup bundles, repeatable restore drills, Prometheus metrics scraping, and trace-correlated request log queries all live in the same workflow family.
+AppFoundryLab already has the right macro-shape for a reusable boilerplate:
+- a real frontend
+- an authenticated API gateway
+- a logger and incident surface
+- a compute worker
+- local lifecycle scripts
+- bilingual documentation
 
-## Important improvements in this iteration
+The main issue was no longer missing capability. It was truthfulness. This cycle closed the highest-signal truth gaps.
 
-- pinned-host SSH replaced trust-on-first-use deployment behavior
-- backup bundles now carry checksums, optional encryption, off-host sync, and retention cleanup
-- restore drills are scripted and have a disposable CI workflow counterpart
-- GHCR image publish and image-mode validation now exist alongside the original build-mode path
-- release catalogs and release-ledger JSON exports now preserve manifest history and selector-based rollback targets
-- release-evidence summaries and ledger attestations now turn the same catalog into a reusable evidence chain
-- request logs are queryable through the admin API, turning trace correlation into an operator-facing backend capability
-- Prometheus overlay adds a concrete metrics backend beyond webhook fan-out
-- Playwright browser coverage now exercises the admin trace lookup flow and restore-drill artifact preview, and Linux bootstrap is now scripted for CI and local runs
-- S3/object-storage sync is now a first-class backup profile
-- operator-facing Prometheus access now has both basic-auth and mTLS proxy variants
-- release evidence can now be exported to long-term audit storage
-- local release-evidence rehearsal now proves the full evidence chain against a real local deployment
-- S3 lifecycle drift can now be checked against the repository retention contract
-- WSL and Docker Desktop environments can now drive the ops scripts via `DOCKER_BIN`
-- runtime diagnostics now reuses a cached snapshot, collects external readiness/logger probes in parallel, and keeps admin request-log loading off the first critical render path
-- logger incident summary now uses a single Mongo aggregation path instead of multiple round-trips, which keeps the admin incident report cheaper as data grows
+## What changed materially
 
-## Remaining gaps before a defensible 10/10
+- `dev-up` now validates readiness, logger reachability, and an authenticated admin runtime endpoint before reporting success
+- the repo-local Go baseline is explicit through `backend/go.mod`, `toolchain.versions.json`, `check-toolchain.sh`, and `go-test.sh`
+- dependency-backed route behavior is now explicit in [dependency-degradation-runbook.md](/mnt/d/w/AppFoundryLab/docs/dependency-degradation-runbook.md) and `GET /api/v1/admin/runtime-config`
+- `archive-runtime-report.sh` no longer accepts a positional admin password and exported request-log evidence is minimized
+- signed release-ledger attestation is documented as a required production/staging workflow contract
+- doc drift governance now includes semantic checks instead of only checking whether some files changed
 
-- there is no material repository-side gap left for the boilerplate itself; the remaining work is environment-owned execution in real staging or production
-- signed ledger mode still depends on provisioning `RELEASE_LEDGER_ATTESTATION_KEY` in the target environments, but the repo can now enforce failure instead of silently degrading when signed mode is required
-- performance-wise, the remaining work is evidence collection under real load rather than another repository refactor
+## Current repo posture
+
+- This is now a production-shaped starter with a cleaner truth contract, not a toy demo and not yet a productized platform.
+- The browser validation story is split cleanly between mock-backed regression and live-stack smoke.
+- The advanced ops surface remains optional, but the repo now documents the mandatory evidence and attestation expectations correctly.
+
+## Likely next improvement areas
+
+- richer admin diagnostics presentation for the dependency policy matrix
+- more fixture-based coverage for semantic governance scripts
+- deciding whether live-stack browser smoke should stay nightly-only or move into a more frequent host-backed lane
 
 ## Recommendation
 
-Keep the monorepo. Treat the current stack as the operational baseline, then focus on first-run live-host evidence harvests, signed-attestation rollout, and normal certificate/key rotation hygiene instead of jumping to a heavier platform.
+Treat the project as a production-shaped starter with an optional advanced ops surface.
+Keep the current topology.
+Invest next in maintainability and operator ergonomics rather than adding more platform features.

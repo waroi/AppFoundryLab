@@ -44,6 +44,7 @@ type Monitor struct {
 	loggerSharedSecret  string
 	webhookHMACSecret   string
 	sink                string
+	enabledSinks        map[string]bool
 	webhookAllowedHosts map[string]struct{}
 	interval            time.Duration
 	dedupeWindow        time.Duration
@@ -84,6 +85,7 @@ func NewMonitor(reportBuilder ReportBuilder, loggerEndpoint, webhookURL, loggerS
 		loggerSharedSecret:  loggerSharedSecret,
 		webhookHMACSecret:   webhookHMACSecret,
 		sink:                sink,
+		enabledSinks:        make(map[string]bool),
 		interval:            interval,
 		dedupeWindow:        dedupeWindow,
 		client:              client,
@@ -96,6 +98,9 @@ func NewMonitor(reportBuilder ReportBuilder, loggerEndpoint, webhookURL, loggerS
 			continue
 		}
 		monitor.webhookAllowedHosts[host] = struct{}{}
+	}
+	for _, item := range strings.FieldsFunc(sink, func(r rune) bool { return r == '+' || r == ',' }) {
+		monitor.enabledSinks[strings.TrimSpace(item)] = true
 	}
 	monitor.publishStats()
 	return monitor
@@ -247,20 +252,28 @@ func buildIncidentEventID(code, eventType, now string) string {
 }
 
 func (m *Monitor) dispatchEvent(event handlers.RuntimeIncidentEventRecord) {
-	if sinkIncludes(m.sink, "logger") {
-		if err := m.dispatchToLogger(event); err != nil {
+	if len(m.sink) == 0 {
+		return
+	}
+
+	payload, err := json.Marshal(event)
+	if err != nil {
+		m.dispatchFailures.Add(1)
+		m.lastDispatchError = err.Error()
+		return
+	}
+
+	if m.sinkEnabled("logger") {
+		if err := m.dispatchToLogger(payload); err != nil {
 			m.dispatchFailures.Add(1)
 			m.lastDispatchError = err.Error()
 		}
 	}
-	if sinkIncludes(m.sink, "stdout") {
-		payload, err := json.Marshal(event)
-		if err == nil {
-			log.Printf("incident_event %s", payload)
-		}
+	if m.sinkEnabled("stdout") {
+		log.Printf("incident_event %s", payload)
 	}
-	if sinkIncludes(m.sink, "webhook") {
-		if err := m.dispatchToWebhook(event); err != nil {
+	if m.sinkEnabled("webhook") {
+		if err := m.dispatchToWebhook(payload); err != nil {
 			m.dispatchFailures.Add(1)
 			m.lastDispatchError = err.Error()
 		}
@@ -269,14 +282,10 @@ func (m *Monitor) dispatchEvent(event handlers.RuntimeIncidentEventRecord) {
 	m.publishStats()
 }
 
-func (m *Monitor) dispatchToLogger(event handlers.RuntimeIncidentEventRecord) error {
+func (m *Monitor) dispatchToLogger(body []byte) error {
 	baseURL := deriveLoggerBaseURL(m.loggerEndpoint)
 	if baseURL == "" {
 		return nil
-	}
-	body, err := json.Marshal(event)
-	if err != nil {
-		return err
 	}
 	timestamp := time.Now().UTC().Format(time.RFC3339Nano)
 	req, err := http.NewRequest(http.MethodPost, baseURL+"/incident-events", bytes.NewReader(body))
@@ -299,7 +308,7 @@ func (m *Monitor) dispatchToLogger(event handlers.RuntimeIncidentEventRecord) er
 	return nil
 }
 
-func (m *Monitor) dispatchToWebhook(event handlers.RuntimeIncidentEventRecord) error {
+func (m *Monitor) dispatchToWebhook(body []byte) error {
 	if strings.TrimSpace(m.webhookURL) == "" {
 		return nil
 	}
@@ -311,10 +320,6 @@ func (m *Monitor) dispatchToWebhook(event handlers.RuntimeIncidentEventRecord) e
 		if _, ok := m.webhookAllowedHosts[strings.ToLower(parsed.Hostname())]; !ok {
 			return errors.New("incident webhook host is not allowed")
 		}
-	}
-	body, err := json.Marshal(event)
-	if err != nil {
-		return err
 	}
 	req, err := http.NewRequest(http.MethodPost, m.webhookURL, bytes.NewReader(body))
 	if err != nil {
@@ -355,15 +360,6 @@ func (m *Monitor) publishStats() {
 	})
 }
 
-func sinkIncludes(raw, target string) bool {
-	for _, item := range strings.FieldsFunc(raw, func(r rune) bool { return r == '+' || r == ',' }) {
-		if strings.TrimSpace(item) == target {
-			return true
-		}
-	}
-	return false
-}
-
 func deriveLoggerBaseURL(raw string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -397,4 +393,32 @@ func firstNonEmpty(candidates ...string) string {
 		}
 	}
 	return ""
+}
+
+func (m *Monitor) sinkEnabled(name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		return false
+	}
+	if len(m.enabledSinks) > 0 {
+		return m.enabledSinks[name] || m.enabledSinks["all"]
+	}
+	return sinkIncludes(m.sink, name)
+}
+
+func sinkIncludes(raw, name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		return false
+	}
+	for _, item := range strings.FieldsFunc(raw, func(r rune) bool { return r == '+' || r == ',' }) {
+		value := strings.ToLower(strings.TrimSpace(item))
+		if value == "" {
+			continue
+		}
+		if value == "all" || value == name {
+			return true
+		}
+	}
+	return false
 }

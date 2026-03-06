@@ -19,7 +19,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23.x"
+          go-version: "1.24.0"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -33,7 +33,12 @@ jobs:
         working-directory: frontend
         run: bun install
 
+      - name: Bootstrap Playwright runtime
+        run: ./scripts/bootstrap-playwright-linux.sh --mode system --frontend-dir ./frontend
+
       - name: Run script quality gate
+        env:
+          RUN_LIVE_STACK_BROWSER_SMOKE: "true"
         run: ./scripts/quality-gate.sh ci-full
 
   release-gate-full-nightly:
@@ -50,7 +55,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23.x"
+          go-version: "1.24.0"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable

@@ -195,6 +195,9 @@ jobs:
           esac
 
       - name: Validate remote operation configuration
+        env:
+          LEDGER_ATTESTATION_SIGNING_KEY: ${{ secrets.RELEASE_LEDGER_ATTESTATION_KEY }}
+          RELEASE_EVIDENCE_AUDIT_TARGET: ${{ vars.RELEASE_EVIDENCE_AUDIT_TARGET }}
         run: |
           set -euo pipefail
           for value_name in SSH_HOST SSH_USER SSH_KNOWN_HOSTS DEPLOY_PATH ENV_FILE SSH_PRIVATE_KEY; do
@@ -225,6 +228,14 @@ jobs:
                 exit 1
               fi
             done
+          fi
+          if [ -z "${LEDGER_ATTESTATION_SIGNING_KEY:-}" ]; then
+            echo "missing required ops attestation secret: RELEASE_LEDGER_ATTESTATION_KEY" >&2
+            exit 1
+          fi
+          if { [ "$OPS_OPERATION" = "rollback" ] || [ "$OPS_OPERATION" = "restore-drill" ] || [ "$OPS_OPERATION" = "list-release-catalog" ]; } && [ -z "${RELEASE_EVIDENCE_AUDIT_TARGET:-}" ]; then
+            echo "missing required release evidence audit target: RELEASE_EVIDENCE_AUDIT_TARGET" >&2
+            exit 1
           fi
 
       - name: Start SSH agent
@@ -397,7 +408,7 @@ jobs:
         env:
           LEDGER_ATTESTATION_SIGNING_KEY: ${{ secrets.RELEASE_LEDGER_ATTESTATION_KEY }}
           LEDGER_ATTESTATION_KEY_ID: ${{ vars.RELEASE_LEDGER_ATTESTATION_KEY_ID }}
-          LEDGER_ATTESTATION_REQUIRE_SIGNED: ${{ vars.RELEASE_LEDGER_ATTESTATION_REQUIRED || 'false' }}
+          LEDGER_ATTESTATION_REQUIRE_SIGNED: 'true'
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -412,6 +423,9 @@ jobs:
 
       - name: Build remote release evidence summary
         if: always() && (env.OPS_OPERATION == 'rollback' || env.OPS_OPERATION == 'restore-drill' || env.OPS_OPERATION == 'list-release-catalog')
+        env:
+          RELEASE_EVIDENCE_REQUIRE_ATTESTATION: 'true'
+          RELEASE_EVIDENCE_REQUIRE_SIGNED_ATTESTATION: 'true'
         run: |
           set -euo pipefail
           mkdir -p "./artifacts/release-evidence/$OPS_TARGET"

@@ -29,10 +29,10 @@ maybe_archive_runtime_report() {
   fi
 
   out_dir="${DEPLOY_REPORT_DIR:-$ROOT_DIR/artifacts/deploy-reports}"
-  "$ROOT_DIR/scripts/archive-runtime-report.sh" \
+  DEPLOY_ADMIN_PASSWORD="$DEPLOY_ADMIN_PASSWORD" \
+    "$ROOT_DIR/scripts/archive-runtime-report.sh" \
     "$DEPLOY_API_BASE_URL" \
     "$DEPLOY_ADMIN_USER" \
-    "$DEPLOY_ADMIN_PASSWORD" \
     "$out_dir"
 }
 

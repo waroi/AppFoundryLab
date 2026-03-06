@@ -46,6 +46,16 @@ cp .env.single-host.example .env.single-host
 
 The restore drill now seeds a deterministic business fixture, stores `restore-drill-fixture.json` in newly created bundles, and writes canonical verification artifacts under `artifacts/restore-drill`. Backup bundles also maintain `backup-catalog.json` plus `latest-bundle.txt` for versioned local, SSH-copy, or S3/object-storage targets.
 
+Runtime archive usage is now env/stdin-first:
+
+```bash
+export DEPLOY_ADMIN_PASSWORD='replace-me'
+./scripts/archive-runtime-report.sh https://api.example.com admin ./artifacts/runtime-archive
+printf '%s' "$DEPLOY_ADMIN_PASSWORD" | ./scripts/archive-runtime-report.sh --password-stdin https://api.example.com admin ./artifacts/runtime-archive
+```
+
+The exported request-log evidence is minimized by default so IPs and raw query strings do not leak into the archive.
+
 If Docker Desktop is exposed as `docker.exe` instead of a Linux `docker` binary, export `DOCKER_BIN="/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe"` before using the deploy scripts.
 
 ## VPS next
@@ -69,7 +79,12 @@ Remote workflows now exist for:
 - [backup-lifecycle-drift.yml](/mnt/d/w/AppFoundryLab/.github/workflows/backup-lifecycle-drift.yml)
 - [restore-drill-single-host.yml](/mnt/d/w/AppFoundryLab/.github/workflows/restore-drill-single-host.yml)
 
-These workflows now cover pinned-host SSH, runtime archive evidence, release-evidence summaries, long-term audit export, ledger attestations with optional signed enforcement, backup bundles, release catalog and ledger updates, restore drills, S3 lifecycle drift checks, automatic GHCR manifest promotion, runtime frontend API configuration, and optional operator-facing Prometheus proxying with basic auth or mTLS.
+These workflows now cover pinned-host SSH, runtime archive evidence, release-evidence summaries, long-term audit export, signed ledger attestations, backup bundles, release catalog and ledger updates, restore drills, S3 lifecycle drift checks, automatic GHCR manifest promotion, runtime frontend API configuration, and optional operator-facing Prometheus proxying with basic auth or mTLS.
+
+Treat signed attestation as required for the release-oriented image workflows. The practical inputs are:
+- `RELEASE_EVIDENCE_AUDIT_TARGET`
+- `RELEASE_LEDGER_ATTESTATION_KEY` or the script-level `LEDGER_ATTESTATION_SIGNING_KEY`
+- optional `RELEASE_LEDGER_ATTESTATION_KEY_ID`
 
 ## Read next
 

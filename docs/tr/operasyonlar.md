@@ -22,6 +22,9 @@
 - `PROMETHEUS_OPERATOR_TLS_KEY_FILE`
 - `PROMETHEUS_OPERATOR_CLIENT_CA_FILE`
 - `LEDGER_ATTESTATION_REQUIRE_SIGNED`
+- `RELEASE_EVIDENCE_AUDIT_TARGET`
+- `RELEASE_LEDGER_ATTESTATION_KEY`
+- `RELEASE_LEDGER_ATTESTATION_KEY_ID`
 - `DOCKER_BIN`
 - `API_GATEWAY_IMAGE`
 - `LOGGER_IMAGE`
@@ -69,10 +72,16 @@ RELEASE_CATALOG_PATH=./artifacts/release-catalog/staging/catalog.json ./scripts/
 - request log kayitlari logger backend uzerinden Mongo'ya yazilir, `GET /api/v1/admin/request-logs` ile sorgulanir ve admin trace lookup UI'da gosterilir
 - operator erisimi gerekiyorsa `ENABLE_OPERATOR_PROMETHEUS_ACCESS=true` ile basic-auth veya mTLS proxy katmani acilabilir
 - webhook fan-out korunur, fakat artik HMAC signing ve allowlist ister
-- release ledger ciktilari `attest-release-ledger.sh` ve `verify-release-ledger-attestation.sh` ile dogrulanabilir hale getirildi
+- release ledger ciktilari `attest-release-ledger.sh` ve `verify-release-ledger-attestation.sh` ile dogrulanmasi beklenen zorunlu kanit haline geldi
 - operator mTLS rollout'u icin [operator-observability-runbook.md](/mnt/d/w/AppFoundryLab/docs/operator-observability-runbook.md), `generate-operator-mtls-certs.sh` ve `check-operator-mtls-readiness.sh` kanonik yoldur
+- runtime archive export'lari varsayilan olarak redacted/minimized uretir; positional secret yerine `DEPLOY_ADMIN_PASSWORD` veya `--password-stdin` kullanilmalidir
 
-## 6. Sonraki okumalar
+## 6. Kalite otomasyon notlari
+
+- `release-gate-full-nightly.yml`, `RUN_LIVE_STACK_BROWSER_SMOKE=true` ile `./scripts/quality-gate.sh ci-full` akisini da calistirir
+- `check-doc-drift.sh --mode strict` artik archive kullanimi, signed evidence gereksinimleri ve `e2e` ile `e2e:live` ayrimi icin semantik dogruluk kontrolu yapar
+
+## 7. Sonraki okumalar
 
 - [deployment.md](/mnt/d/w/AppFoundryLab/docs/tr/deployment.md)
 - [deployment-strategy.md](/mnt/d/w/AppFoundryLab/docs/deployment-strategy.md)

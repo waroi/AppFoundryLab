@@ -26,7 +26,7 @@ Use the runtime diagnostics panel and the admin incident endpoints as the first 
 
 ## Operational follow-ups
 
-- archive deploy-time diagnostics with [archive-runtime-report.sh](/mnt/d/w/AppFoundryLab/scripts/archive-runtime-report.sh)
+- archive deploy-time diagnostics with [archive-runtime-report.sh](/mnt/d/w/AppFoundryLab/scripts/archive-runtime-report.sh) using `DEPLOY_ADMIN_PASSWORD` or `--password-stdin`
 - prune old incident records with [prune-incident-events.sh](/mnt/d/w/AppFoundryLab/scripts/prune-incident-events.sh)
 - use [single-host-ops.yml](/mnt/d/w/AppFoundryLab/.github/workflows/single-host-ops.yml) to run remote pruning or rollback
 

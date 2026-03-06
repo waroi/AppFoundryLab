@@ -132,8 +132,8 @@ func TestResolveLocalAuthMode(t *testing.T) {
 	}
 
 	t.Setenv("LOCAL_AUTH_MODE", "unexpected")
-	if mode := ResolveLocalAuthMode(); mode != "demo" {
-		t.Fatalf("expected fallback demo mode, got %q", mode)
+	if mode := ResolveLocalAuthMode(); mode != "generated" {
+		t.Fatalf("expected invalid mode to fail safe to generated, got %q", mode)
 	}
 }
 

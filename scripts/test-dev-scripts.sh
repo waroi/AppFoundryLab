@@ -132,7 +132,7 @@ test_dev_doctor_detects_missing_required_tools() {
   ln -s "$(command -v openssl)" "$fakebin/openssl"
   output="$(mktemp)"
 
-  if (cd "$fixture" && PATH="$fakebin" ./scripts/dev-doctor.sh >"$output" 2>&1); then
+  if (cd "$fixture" && PATH="$fakebin" DOCKER_BIN="__missing_docker__" ./scripts/dev-doctor.sh >"$output" 2>&1); then
     fail "dev-doctor should fail when docker is missing"
   fi
 
@@ -164,7 +164,11 @@ exit 0
 EOF
   cat > "$fakebin/curl" <<EOF
 #!/usr/bin/env bash
-echo "\${@: -1}" >> "$curl_log"
+url="\${@: -1}"
+echo "\$url" >> "$curl_log"
+if [[ "\$url" == *"/api/v1/auth/token" ]]; then
+  printf '{"accessToken":"test-token"}'
+fi
 exit 0
 EOF
   chmod +x "$fakebin/docker" "$fakebin/curl"
@@ -172,12 +176,17 @@ EOF
   (
     cd "$fixture"
     PATH="$fakebin:$PATH" ./scripts/dev-up.sh minimal security >"$output_file"
-    PATH="$fakebin:$PATH" ./scripts/dev-down.sh security >/tmp/test-dev-scripts-dev-down.out
+    PATH="$fakebin:$PATH" ./scripts/dev-down.sh security --volumes >/tmp/test-dev-scripts-dev-down.out
   )
 
   assert_contains "$log_file" "compose --env-file $fixture/.env.docker.local -f $fixture/docker-compose.yml -f $fixture/docker-compose.security.yml up --build -d"
-  assert_contains "$log_file" "compose --env-file $fixture/.env.docker.local -f $fixture/docker-compose.yml -f $fixture/docker-compose.security.yml down"
-  assert_contains "$curl_log" "http://127.0.0.1:18081/health/live"
+  assert_contains "$log_file" "compose --env-file $fixture/.env.docker.local -f $fixture/docker-compose.yml -f $fixture/docker-compose.security.yml down --volumes"
+  assert_contains "$curl_log" "http://127.0.0.1:18081/health/ready"
+  assert_contains "$curl_log" "http://127.0.0.1:18091/health"
+  assert_contains "$curl_log" "http://127.0.0.1:18091/metrics"
+  assert_contains "$curl_log" "http://127.0.0.1:18081/api/v1/auth/token"
+  assert_contains "$curl_log" "http://127.0.0.1:18081/api/v1/admin/runtime-report"
+  assert_contains "$curl_log" "http://127.0.0.1:4400/healthz"
   assert_contains "$curl_log" "http://127.0.0.1:4400"
   assert_contains "$output_file" "frontend: http://127.0.0.1:4400"
   assert_contains "$output_file" "api: http://127.0.0.1:18081"
@@ -191,8 +200,13 @@ test_windows_docker_bin_translates_compose_paths() {
   fakebin="$(new_fakebin)"
   log_file="$fixture/docker-compose-windows.log"
   env_log_file="$fixture/docker-compose-windows-env.log"
-  expected_compose="$(wslpath -w "$fixture/docker-compose.yml")"
-  expected_env="$(wslpath -w "$fixture/.env.docker.local")"
+  if command -v wslpath >/dev/null 2>&1; then
+    expected_compose="$(wslpath -w "$fixture/docker-compose.yml")"
+    expected_env="$(wslpath -w "$fixture/.env.docker.local")"
+  else
+    expected_compose="$fixture/docker-compose.yml"
+    expected_env="$fixture/.env.docker.local"
+  fi
 
   cat > "$fakebin/docker.exe" <<EOF
 #!/usr/bin/env bash
@@ -203,7 +217,9 @@ for ((i = 0; i < \${#args[@]}; i++)); do
   if [[ "\${args[\$i]}" == "--env-file" ]]; then
     env_file_path="\${args[\$((i + 1))]}"
     if [[ "\$env_file_path" == *\\\\* ]]; then
-      env_file_path="\$(wslpath -u "\$env_file_path")"
+      if command -v wslpath >/dev/null 2>&1; then
+        env_file_path="\$(wslpath -u "\$env_file_path")"
+      fi
     fi
     cat "\$env_file_path" > "$env_log_file"
     break
@@ -243,9 +259,15 @@ test_dev_up_windows_docker_bin_uses_runtime_env_file_and_windows_curl() {
   env_log_file="$fixture/docker-compose-windows-dev-up.env"
   curl_exe_log="$fixture/dev-up-windows-curl.log"
   output_file="$fixture/dev-up-windows.out"
-  expected_compose="$(wslpath -w "$fixture/docker-compose.yml")"
-  expected_security="$(wslpath -w "$fixture/docker-compose.security.yml")"
-  expected_env="$(wslpath -w "$fixture/.env.docker.local")"
+  if command -v wslpath >/dev/null 2>&1; then
+    expected_compose="$(wslpath -w "$fixture/docker-compose.yml")"
+    expected_security="$(wslpath -w "$fixture/docker-compose.security.yml")"
+    expected_env="$(wslpath -w "$fixture/.env.docker.local")"
+  else
+    expected_compose="$fixture/docker-compose.yml"
+    expected_security="$fixture/docker-compose.security.yml"
+    expected_env="$fixture/.env.docker.local"
+  fi
 
   cat > "$fakebin/docker.exe" <<EOF
 #!/usr/bin/env bash
@@ -256,7 +278,9 @@ for ((i = 0; i < \${#args[@]}; i++)); do
   if [[ "\${args[\$i]}" == "--env-file" ]]; then
     env_file_path="\${args[\$((i + 1))]}"
     if [[ "\$env_file_path" == *\\\\* ]]; then
-      env_file_path="\$(wslpath -u "\$env_file_path")"
+      if command -v wslpath >/dev/null 2>&1; then
+        env_file_path="\$(wslpath -u "\$env_file_path")"
+      fi
     fi
     cat "\$env_file_path" > "$env_log_file"
     break
@@ -270,7 +294,11 @@ exit 1
 EOF
   cat > "$fakebin/curl.exe" <<EOF
 #!/usr/bin/env bash
-echo "\${@: -1}" >> "$curl_exe_log"
+url="\${@: -1}"
+echo "\$url" >> "$curl_exe_log"
+if [[ "\$url" == *"/api/v1/auth/token" ]]; then
+  printf '{"accessToken":"test-token"}'
+fi
 exit 0
 EOF
   chmod +x "$fakebin/docker.exe" "$fakebin/curl" "$fakebin/curl.exe"
@@ -293,7 +321,12 @@ EOF
   assert_contains "$env_log_file" "FRONTEND_HOST_PORT=5500"
   assert_contains "$env_log_file" "API_GATEWAY_HOST_PORT=18082"
   assert_contains "$env_log_file" "LOGGER_HOST_PORT=18092"
-  assert_contains "$curl_exe_log" "http://127.0.0.1:18082/health/live"
+  assert_contains "$curl_exe_log" "http://127.0.0.1:18082/health/ready"
+  assert_contains "$curl_exe_log" "http://127.0.0.1:18092/health"
+  assert_contains "$curl_exe_log" "http://127.0.0.1:18092/metrics"
+  assert_contains "$curl_exe_log" "http://127.0.0.1:18082/api/v1/auth/token"
+  assert_contains "$curl_exe_log" "http://127.0.0.1:18082/api/v1/admin/runtime-report"
+  assert_contains "$curl_exe_log" "http://127.0.0.1:5500/healthz"
   assert_contains "$curl_exe_log" "http://127.0.0.1:5500"
   assert_contains "$output_file" "frontend: http://127.0.0.1:5500"
 }
@@ -634,14 +667,16 @@ EOF
 }
 
 test_collect_release_evidence_exports_latest_and_previous_ledgers() {
-  local fixture catalog_dir manifest_a manifest_b out_dir ledger_dir
+  local fixture catalog_dir manifest_a manifest_b out_dir ledger_dir key_file
   fixture="$(new_fixture)"
   catalog_dir="$fixture/artifacts/release-catalog/staging"
   ledger_dir="$fixture/artifacts/release-ledgers/staging"
   out_dir="$fixture/artifacts/release-evidence/staging"
+  key_file="$fixture/attestation-key.pem"
   manifest_a="$fixture/release-a.env"
   manifest_b="$fixture/release-b.env"
   mkdir -p "$ledger_dir"
+  openssl genrsa -out "$key_file" 2048 >/dev/null 2>&1
 
   cat > "$manifest_a" <<'EOF'
 RELEASE_ID=release-a
@@ -671,7 +706,7 @@ EOF
     ./scripts/release-catalog.sh record-operation "$catalog_dir/catalog.json" staging release-a deploy "$fixture/artifacts/deploy-reports/staging" >/tmp/test-dev-scripts-collect-evidence-record-a.out
     ./scripts/release-catalog.sh record-operation "$catalog_dir/catalog.json" staging release-b restore-drill "$fixture/artifacts/restore-drill" >/tmp/test-dev-scripts-collect-evidence-record-b.out
     ./scripts/release-catalog.sh export-ledger "$catalog_dir/catalog.json" release-b "$ledger_dir/release-ledger-release-b.json" >/tmp/test-dev-scripts-collect-evidence-ledger.out
-    ./scripts/attest-release-ledger.sh "$ledger_dir/release-ledger-release-b.json" "$ledger_dir/release-ledger-release-b.attestation.json" >/tmp/test-dev-scripts-collect-evidence-attestation.out
+    LEDGER_ATTESTATION_SIGNING_KEY_FILE="$key_file" ./scripts/attest-release-ledger.sh "$ledger_dir/release-ledger-release-b.json" "$ledger_dir/release-ledger-release-b.attestation.json" >/tmp/test-dev-scripts-collect-evidence-attestation.out
     ./scripts/collect-release-evidence.sh staging "$catalog_dir/catalog.json" "$ledger_dir" "$out_dir" >/tmp/test-dev-scripts-collect-evidence.out
   )
 
@@ -680,6 +715,7 @@ EOF
   assert_file_exists "$out_dir/release-evidence-summary.json"
   assert_contains "$out_dir/release-evidence-summary.md" "Release ID: release-b"
   assert_contains "$out_dir/release-evidence-summary.md" "Attestation path: $ledger_dir/release-ledger-release-b.attestation.json"
+  assert_contains "$out_dir/release-evidence-summary.md" "Attestation mode: signing-key"
 }
 
 test_check_s3_lifecycle_policy_matches_expected_rules() {
@@ -896,7 +932,7 @@ case "\$count" in
   2) printf '%s\n' '{"runtime":"report"}' ;;
   3) printf '%s\n' '{"incident":"report"}' ;;
   4) printf '%s\n' '{"items":[]}' ;;
-  5) printf '%s\n' '{"items":[]}' ;;
+  5) printf '%s\n' '{"items":[{"path":"/api/v1/admin/request-logs?traceId=trace-a","method":"GET","ip":"127.0.0.1","traceId":"trace-a","durationMs":12,"statusCode":200,"occurredAt":"2026-03-01T00:00:00Z"}]}' ;;
   *) exit 1 ;;
 esac
 EOF
@@ -904,13 +940,21 @@ EOF
 
   (
     cd "$fixture"
-    PATH="$fakebin:$PATH" ./scripts/archive-runtime-report.sh http://127.0.0.1:8080 admin password "$out_dir" >/tmp/test-dev-scripts-archive-runtime-report.out
+    PATH="$fakebin:$PATH" DEPLOY_ADMIN_PASSWORD=password ./scripts/archive-runtime-report.sh http://127.0.0.1:8080 admin "$out_dir" >/tmp/test-dev-scripts-archive-runtime-report.out
   )
 
   manifest_file="$(find "$out_dir" -name 'archive-manifest-*.txt' -print -quit)"
   [[ -n "$manifest_file" ]] || fail "expected archive manifest to be created"
   assert_contains "$manifest_file" "request_logs="
+  assert_contains "$manifest_file" "request_logs_mode=minimized"
   assert_contains "$manifest_file" "request_logs_sha256="
+  request_logs_file="$(find "$out_dir" -name 'request-logs-*.json' -print -quit)"
+  [[ -n "$request_logs_file" ]] || fail "expected request log archive"
+  assert_contains "$request_logs_file" "\"removedFields\": ["
+  assert_not_contains "$request_logs_file" "\"ip\":"
+  assert_not_contains "$request_logs_file" "\"traceId\":"
+  assert_contains "$request_logs_file" "\"traceIdHash\":"
+  assert_contains "$request_logs_file" "\"path\": \"/api/v1/admin/request-logs\""
 }
 
 test_post_deploy_check_retries_admin_token() {
@@ -1103,9 +1147,9 @@ EOF
   cat > "$fixture/scripts/archive-runtime-report.sh" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
-mkdir -p "\$4"
-printf 'archived_at=20260301T000000Z\nrequest_logs=request-logs.json\nrequest_logs_sha256=test\n' > "\$4/archive-manifest-20260301T000000Z.txt"
-printf 'archive %s %s %s %s\n' "\$1" "\$2" "\$3" "\$4" >> "$log_file"
+mkdir -p "\$3"
+printf 'archived_at=20260301T000000Z\nrequest_logs=request-logs.json\nrequest_logs_sha256=test\n' > "\$3/archive-manifest-20260301T000000Z.txt"
+printf 'archive %s %s %s\n' "\$1" "\$2" "\$3" >> "$log_file"
 EOF
   cat > "$fixture/scripts/post-deploy-check.sh" <<EOF
 #!/usr/bin/env bash
@@ -1163,7 +1207,7 @@ EOF
 
   assert_contains "$log_file" "restore-mongo ./.env.single-host"
   assert_contains "$log_file" "--drop"
-  assert_contains "$log_file" "archive http://127.0.0.1:8080 admin password ./artifacts/restore-drill"
+  assert_contains "$log_file" "archive http://127.0.0.1:8080 admin ./artifacts/restore-drill"
   assert_contains "$log_file" "docker compose -f $fixture/docker-compose.yml -f $fixture/docker-compose.security.yml -f $fixture/docker-compose.single-host.yml --env-file ./.env.single-host down -v"
   assert_file_exists "$fixture/artifacts/restore-drill/fixture-verification-$marker.json"
   assert_file_exists "$fixture/artifacts/restore-drill/fixture-actual-$marker.json"

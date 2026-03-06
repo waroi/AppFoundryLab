@@ -1,7 +1,7 @@
 <script lang="ts">
-import { getCopy, translateError } from "@/lib/ui/copy";
-import { DEFAULT_LOCALE, locale, type Locale } from "@/lib/ui/preferences";
 import { onMount } from "svelte";
+import { getCopy, translateError } from "@/lib/ui/copy";
+import { DEFAULT_LOCALE, type Locale, locale } from "@/lib/ui/preferences";
 
 type VerificationPayload = {
   marker: string;

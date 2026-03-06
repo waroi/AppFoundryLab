@@ -1,103 +1,87 @@
 # Test ve Kalite
 
-## 1. Backend testleri
+## 1. Frontend dogrulama katmanlari
 
-Tum Go testlerini calistir:
+Hizli utility ve component dogrulamasi:
 
 ```bash
-cd backend && go test ./...
+cd frontend
+../.toolchain/bun/bin/bun run lint
+../.toolchain/bun/bin/bun run check
+../.toolchain/bun/bin/bun run build
+../.toolchain/bun/bin/bun run smoke
+../.toolchain/bun/bin/bun run test
 ```
 
-Odakli bir entegrasyon testi:
+Mock-backed browser regresyonu:
 
 ```bash
-cd backend && go test ./services/api-gateway/cmd/api-gateway -run TestIntegrationAuthProtectedWorkerLoggerMetrics
+cd frontend
+../.toolchain/bun/bin/bun run e2e
 ```
 
-## 2. Worker testleri
+Gercek yerel stack browser smoke:
 
 ```bash
-cd backend/core/calculator && cargo test
+cd frontend
+../.toolchain/bun/bin/bun run e2e:live
 ```
 
-Ortamda sistem `cc` yoksa depo icindeki yardimci scripti kullanin:
+`bun` PATH'te yoksa `../.toolchain/bun/bin/bun` kullanin.
+
+## 2. Backend ve worker dogrulamasi
+
+Repo-local Go toolchain'i bir kez bootstrap edin:
 
 ```bash
-./scripts/run-worker-tests.sh
+./scripts/bootstrap-go-toolchain.sh
 ```
 
-## 3. Frontend kontrolleri
+Izole cache ile Go testleri:
 
 ```bash
-cd frontend && bun run lint
-cd frontend && ./node_modules/.bin/astro check
-cd frontend && ./node_modules/.bin/astro build
-cd frontend && node ./scripts/smoke.mjs
-cd frontend && bun run e2e:bootstrap
-cd frontend && ./scripts/run-playwright.sh
+./scripts/go-test.sh
 ```
 
-Opsiyonel API baglantili smoke:
+Rust worker testleri:
 
 ```bash
-cd frontend && SMOKE_API_BASE_URL=http://127.0.0.1:8080 node ./scripts/smoke.mjs
+cd backend/core/calculator
+cargo test
 ```
 
-## 4. Governance kontrolleri
+## 3. Script ve release kapilari
 
 ```bash
-./scripts/quality-gate.sh sandbox-safe
-./scripts/quality-gate.sh host-strict
 ./scripts/test-dev-scripts.sh
 ./scripts/local-ci-smoke.sh
-./scripts/check-toolchain.sh
+./scripts/quality-gate.sh sandbox-safe
+./scripts/quality-gate.sh host-strict
+./scripts/quality-gate.sh ci-full
 ./scripts/check-doc-drift.sh --mode strict
 ./scripts/check-release-policy-drift.sh
 ./scripts/release-gate.sh fast
+./scripts/release-gate.sh full
 ```
 
-Notlar:
+`check-doc-drift.sh` artik yalnizca degisen dosyalari degil; su dogruluk kurallarini da denetler:
+- `archive-runtime-report.sh` icin guvenli env/stdin kullanimi
+- signed evidence gereksinimleri
+- mock-backed `e2e` ile gercek stack `e2e:live` ayrimi
 
-- `./scripts/quality-gate.sh sandbox-safe`, izin kisitli sandbox ortamlar icin varsayilan kapidir; worker dogrulamasinin acik skip moduna dusmesine izin verir
-- `./scripts/quality-gate.sh host-strict`, PR acmadan once gelistirici makinesinde onerilen tam kapidir
-- CI `./scripts/quality-gate.sh ci-fast`, nightly kapsama ise `./scripts/quality-gate.sh ci-full` kullanir
-- admin runtime diagnostics artik frontend panelinin kullandigi ayni JSON icinde alert-odakli ozet, breach sayisi ve onerilen aksiyonlar da sunar
-- runtime diagnostics yolu artik cache'lenmis snapshot'i tekrar kullanir, external probe'lari paralel toplar ve request loglarini cekirdek admin raporundan sonra yukler
-- incident report ve kalici incident journal handler'lari artik gateway handler test paketinde odakli sekilde dogrulanir
-- `node ./scripts/smoke.mjs` artik locale-sensitive sayfa metni yerine SSR-stable frontend isaretcilerini dogrular
-- locale/theme dogrulamasi `/`, `/test`, `/tr` ve `/tr/test`, sag ust toolbar, URL gecisleri, theme kaliciligi ve `html[lang]` ile `html[data-theme]` uzerinden yapilmalidir
-- frontend e2e selector'lari gorunur cevrilmis metin yerine `data-testid` veya `data-*` isaretcilerini tercih etmelidir
-- `./scripts/test-dev-scripts.sh`, gercek workspace'i bozmadan temp fixture icinde `bootstrap`, `dev-doctor`, `dev-up` ve `dev-down` davranisini dogrular
-- `./scripts/test-dev-scripts.sh`, buna ek olarak S3 backup sync, release-evidence summary export, audit export, ledger attestation, operator mTLS sertifika uretimi/hazirlik kontrolu, local evidence rehearsal ve Playwright bootstrap davranisini, Linux runtime kutuphaneleri icin package-version fallback dahil olacak sekilde dogrular
-- `./scripts/local-ci-smoke.sh`, dev script testleri, release policy drift ve worker helper dogrulamasini tek akista toplar
-- `local-ci-smoke` icin varsayilan `RUN_WORKER_TESTS=auto` modudur; izin kisitli sandbox ortamlarini acikca skip eder, `RUN_WORKER_TESTS=true` ise strict davranir
-- `./scripts/rehearse-release-evidence-local.sh`, katalog, ledger, attestation, summary ve audit-export akislarinin gercek yerel deploy uzerinde birlikte calistigini kanitlayan kanonik repo ici dogrulamadir
+`ci-full` artik tam release gate'i calistirir; `release-gate-full-nightly.yml` ise `RUN_LIVE_STACK_BROWSER_SMOKE=true` ile live-stack browser smoke'u da acik getirir.
 
-## 5. Performans kontrolleri
+## 4. Her katman neyi kanitlar
 
-```bash
-./scripts/run-k6-smoke.sh
-./scripts/run-k6-scenario.sh spike
-./scripts/run-k6-scenario.sh soak
-```
+- `smoke`: static build isaretcileri ve opsiyonel API kontrat probe'lari
+- `e2e`: selector, locale/theme screenshot'lari ve unhappy-path UI durumlari icin mock-backed regresyon
+- `e2e:live`: kullanicinin tarayicidan birebir tekrar edebilecegi Docker-backed admin login, runtime diagnostics ve trace lookup akisi
+- `go-test.sh`: `backend/go.mod` icindeki repo-local Go baseline'i ile calisan backend test suiti
+- `dev-up`: basari demeden once readiness ve bir authenticated admin smoke
+- `release-gate.sh full`: repo ici static kontroller, Go testleri, Rust testleri ve frontend build/smoke
 
-## 6. Yeni test yazarken
+## 5. Guncel durum
 
-Kurallar:
-
-- Pozitif ve negatif senaryo ekle
-- Yetkilendirme hatalarini test et
-- Contract sekli degisiyorsa onu test et
-- Davranis env var'a bagliysa operasyonel kenar durumlari test et
-- Frontend sunum degisikliklerinde locale degisimi, localized route navigation, theme degisimi ve theme kaliciligini test et
-- Locale/theme davranisi degisiyorsa `html[lang]` ve `html[data-theme]` assertion'i ekle
-- Stabil selector veya ham `data-*` degeri ayni davranisi ifade edebiliyorsa tek bir cevrilmis gorunur metne bagli assertion yazma
-
-## 7. Kalite calismasi ne zaman tamam sayilir
-
-Genelde su durumda guvenli kabul edilir:
-
-- ilgili yerel testler yesilse
-- CI ile uyumlu komutlar geciyorsa
-- dokuman guncellendiyse
-- yeni env var veya endpoint'ler dokumante edildiyse
+- Onceki toolchain, `SystemStatus` ve `ci-full` drift maddeleri kapatildi.
+- Dependency degradation kontrati artik [dependency-degradation-runbook.md](/mnt/d/w/AppFoundryLab/docs/dependency-degradation-runbook.md) icinde belgelenir ve `GET /api/v1/admin/runtime-config` uzerinden yayinlanir.
+- Halen acik repo backlog'un tek kanonik kaynagi `PROGRESS.md` dosyasidir.

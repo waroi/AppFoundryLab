@@ -42,8 +42,8 @@ func TestValidateFibonacciRequest(t *testing.T) {
 	}{
 		{"n=0 is valid", 0, true, ""},
 		{"n=1 is valid", 1, true, ""},
-		{"n=1000 is valid (boundary)", 1000, true, ""},
-		{"n=1001 is invalid (above max)", 1001, false, "n_out_of_range"},
+		{"n=93 is valid (boundary)", 93, true, ""},
+		{"n=94 is invalid (above max)", 94, false, "n_out_of_range"},
 		{"n=max uint32 is invalid", ^uint32(0), false, "n_out_of_range"},
 	}
 

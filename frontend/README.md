@@ -39,8 +39,17 @@
 
 ```bash
 cd frontend
-./node_modules/.bin/astro check
-./node_modules/.bin/astro build
-node ./scripts/smoke.mjs
-./scripts/run-playwright.sh
+../.toolchain/bun/bin/bun run check
+../.toolchain/bun/bin/bun run build
+../.toolchain/bun/bin/bun run smoke
+../.toolchain/bun/bin/bun run test
+../.toolchain/bun/bin/bun run e2e
+../.toolchain/bun/bin/bun run e2e:live
 ```
+
+Linux CI veya Linux gelistirme ortami icin `../.toolchain/bun/bin/bun run e2e:bootstrap` komutu Playwright bagimliliklarinin sistem seviyesinde hazirlanmasi icin kullanilir.
+
+Not:
+- `e2e`, mock-backed hizli UI regresyonudur.
+- `e2e:live`, `./scripts/dev-up.sh standard` sonrasi gercek stack smoke yoludur.
+- Biome lint konfigurasyonu su anda JS/TS odaklidir; Astro/Svelte dosyalari lint kapsamindan cikartilarak false-positive sinyaller azaltilmistir.

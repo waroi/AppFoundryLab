@@ -1,6 +1,6 @@
 <script lang="ts">
 import { getCopy } from "@/lib/ui/copy";
-import { DEFAULT_LOCALE, locale, type Locale } from "@/lib/ui/preferences";
+import { DEFAULT_LOCALE, type Locale, locale } from "@/lib/ui/preferences";
 
 export let initialLocale: Locale = DEFAULT_LOCALE;
 

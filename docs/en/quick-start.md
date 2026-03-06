@@ -1,6 +1,6 @@
 # Quick Start
 
-## 1. First local run
+## 1. Bring the local stack up
 
 ```bash
 ./scripts/dev-doctor.sh
@@ -8,45 +8,61 @@
 ./scripts/dev-up.sh standard
 ```
 
-If the default local ports are already occupied, edit `.env.docker.local` or export `FRONTEND_HOST_PORT`, `API_GATEWAY_HOST_PORT`, and `LOGGER_HOST_PORT` before restarting the stack. Example: `FRONTEND_HOST_PORT=14321 API_GATEWAY_HOST_PORT=18080 LOGGER_HOST_PORT=18090 ./scripts/dev-up.sh standard security`. Local Docker publishing defaults to `DOCKER_HOST_BIND_ADDRESS=127.0.0.1`.
+If `dev-doctor` reports `docker compose unavailable` on WSL, enable Docker Desktop WSL integration or rerun with:
 
-## 2. Open the stack
+```bash
+DOCKER_BIN="/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe" ./scripts/dev-doctor.sh
+DOCKER_BIN="/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe" ./scripts/dev-up.sh standard
+```
 
-- Frontend: `http://127.0.0.1:<FRONTEND_HOST_PORT>/` (default: `http://127.0.0.1:4321/`)
-- Frontend test page: `http://127.0.0.1:<FRONTEND_HOST_PORT>/test` (default: `http://127.0.0.1:4321/test`)
-- Turkish home: `http://127.0.0.1:<FRONTEND_HOST_PORT>/tr`
-- Turkish test page: `http://127.0.0.1:<FRONTEND_HOST_PORT>/tr/test`
-- API gateway: `http://127.0.0.1:<API_GATEWAY_HOST_PORT>` (default: `http://127.0.0.1:8080`)
-- Logger metrics: `http://127.0.0.1:<LOGGER_HOST_PORT>/metrics` (default: `http://127.0.0.1:8090/metrics`)
+## 2. Understand the local health contract
 
-## 3. Verify locale and theme
+- `GET /health/live` means the gateway process is running
+- `GET /health/ready` means the dependency-backed stack is usable
+- `GET /healthz` on the frontend is the lightweight shell health endpoint
+- `dev-up` now waits for readiness, logger reachability, and one authenticated admin endpoint before reporting success
 
-- Use the top-right toolbar on `/` and `/test`
-- Switch between `EN` and `TR`
-- Switch between `Light` and `Dark`
-- Confirm the language switch navigates between `/` and `/tr`, or between `/test` and `/tr/test`
-- Reload the page and confirm the current URL keeps the selected locale while the selected theme persists
-- Confirm the document updates `html[lang]` and `html[data-theme]`
+Default URLs:
+- Frontend: `http://127.0.0.1:4321/`
+- Frontend health: `http://127.0.0.1:4321/healthz`
+- API live: `http://127.0.0.1:8080/health/live`
+- API ready: `http://127.0.0.1:8080/health/ready`
+- Logger metrics: `http://127.0.0.1:8090/metrics`
 
-## 4. What to try after admin login
+## 3. Run the first browser smoke
 
-- review runtime config
-- review runtime metrics
-- download the runtime report
-- download the incident report
-- inspect recent incident events
+- Open `http://127.0.0.1:4321/`
+- Sign in as `admin`
+- Use the password printed by `./scripts/bootstrap.sh` or stored in `.env.docker.local` under `BOOTSTRAP_ADMIN_PASSWORD`
+- Confirm that the runtime summary, trace lookup panel, and request-log list load successfully
+
+Automated real-stack browser smoke:
+
+```bash
+cd frontend
+../.toolchain/bun/bin/bun run e2e:live
+```
+
+Mock-backed UI regression:
+
+```bash
+cd frontend
+../.toolchain/bun/bin/bun run e2e
+```
+
+## 4. Reset local state when credentials drift
+
+If persisted Postgres or Mongo volumes reject the configured credentials:
+
+```bash
+./scripts/dev-down.sh standard --volumes
+./scripts/bootstrap.sh standard --force
+./scripts/dev-up.sh standard
+```
 
 ## 5. Next docs
 
-- [developer-guide.md](/mnt/d/w/AppFoundryLab/docs/en/developer-guide.md)
-- [operations.md](/mnt/d/w/AppFoundryLab/docs/en/operations.md)
-- [incident-response.md](/mnt/d/w/AppFoundryLab/docs/en/incident-response.md)
-- [deployment.md](/mnt/d/w/AppFoundryLab/docs/en/deployment.md)
-
-## 6. If you want the single-host deployment package locally
-
-```bash
-cp .env.single-host.example .env.single-host
-./scripts/deploy-single-host.sh up ./.env.single-host
-./scripts/archive-runtime-report.sh http://127.0.0.1:<API_GATEWAY_HOST_PORT> admin strong_password
-```
+- [Developer Guide](/mnt/d/w/AppFoundryLab/docs/en/developer-guide.md)
+- [Operations](/mnt/d/w/AppFoundryLab/docs/en/operations.md)
+- [Testing and Quality](/mnt/d/w/AppFoundryLab/docs/en/testing-and-quality.md)
+- [Project Analysis](/mnt/d/w/AppFoundryLab/docs/en/project-analysis.md)

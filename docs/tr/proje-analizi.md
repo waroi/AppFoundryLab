@@ -1,35 +1,40 @@
 # Proje Analizi
 
-## Guncel durum
+## Guncel konum
 
-Repo artik tek sunucu operasyon hikayesini tek bir ailede topluyor: checkout deploy, immutable image deploy, release katalogu ve ledger takibi, encrypt edilebilir off-host backup bundle, tekrar edilebilir restore drill, Prometheus metrics scrape ve traceId odakli request log sorgusu ayni operasyon modelinde birlesmis durumda.
+AppFoundryLab yeniden kullanilabilir bir boilerplate icin dogru makro sekle sahip:
+- gercek bir frontend
+- authenticated bir API gateway
+- logger ve incident yuzeyi
+- compute worker
+- yerel lifecycle scriptleri
+- iki dilli dokumantasyon
 
-## Bu iterasyondaki onemli gelistirmeler
+Ana problem artik eksik capability degil; repo gercegi ile anlatinin ayni sey olmamasiydi. Bu dongu en yuksek sinyalli truth gap'leri kapatti.
 
-- trust-on-first-use yerine pinned-host SSH kullanimi eklendi
-- backup bundle artik checksum, opsiyonel encryption, off-host sync ve retention temizligi tasiyor
-- restore drill script seviyesinde tanimlandi ve disposable CI workflow karsiligina kavustu
-- GHCR image publish ve image-mode validation checkout tabanli akisin yanina eklendi
-- release kataloglari ve release-ledger JSON ciktilari ile selector tabanli rollback hedefleri eklendi
-- release-evidence summary ve ledger attestation katmani ayni katalogu tekrar kullanilabilir bir kanit zincirine cevirdi
-- request log kayitlari admin API uzerinden sorgulanabilir hale gelerek trace correlation operator seviyesine tasindi
-- Prometheus overlay webhook otesinde somut bir metrics backend sagladi
-- Playwright browser coverage artik admin trace lookup akisini ve restore-drill artifact preview sayfasini test ediyor; Linux bootstrap akisi da script seviyesinde resmilesti
-- S3/object-storage sync artik birinci sinif backup profili
-- operator icin basic-auth ve mTLS proxy varyantlari artik birlikte mevcut
-- release evidence artik uzun omurlu audit storage hedeflerine export edilebiliyor
-- local release-evidence rehearsal artik kanit zincirini gercek yerel deploy uzerinde bastan sona prova ediyor
-- S3 lifecycle drift artik repo retention kontrati ile karsilastirilabiliyor
-- WSL ve Docker Desktop ortamlari `DOCKER_BIN` ile operasyon scriptlerini dogrudan kullanabiliyor
-- runtime diagnostics artik cache'lenmis snapshot uzerinden yeniden kullaniliyor, external readiness/logger probe'lari paralel toplanıyor ve admin request-log yuklemesi kritik ilk render yolundan cikariliyor
-- logger incident summary artik birden fazla Mongo turu yerine tek aggregation yolu ile hesaplaniyor; veri buyudukce admin incident raporu daha ucuz kaliyor
+## Bu dongude maddi olarak ne degisti
 
-## Savunulabilir 10/10 oncesi kalan bosluklar
+- `dev-up` artik readiness, logger erisimi ve authenticated admin runtime endpoint'i dogrulamadan basari demez
+- repo-local Go baseline'i `backend/go.mod`, `toolchain.versions.json`, `check-toolchain.sh` ve `go-test.sh` uzerinden netlestirildi
+- dependency-backed route davranisi artik [dependency-degradation-runbook.md](/mnt/d/w/AppFoundryLab/docs/dependency-degradation-runbook.md) ve `GET /api/v1/admin/runtime-config` icinde acik
+- `archive-runtime-report.sh` artik positional admin password kabul etmez; request-log evidence ciktilari minimize edilir
+- signed release-ledger attestation artik staging/production workflow kontrati olarak belgelenir
+- dokuman drift governance'i sadece dosya degisimini degil semantik dogrulugu da denetler
 
-- boilerplate'in repo ici tarafinda kritik bir bosluk kalmadi; kalan isler gercek staging veya production ortaminda yapilacak environment-sahipli operasyonlar
-- signed ledger modu icin `RELEASE_LEDGER_ATTESTATION_KEY` secret'inin hedef ortamlara yuklenmesi gerekiyor, fakat signed mod zorunluysa repo artik sessizce geri dusmek yerine fail ediyor
-- performans tarafinda kalan is yeni bir repo refactor'u degil, gercek yuk altinda benchmark kaniti toplamaktir
+## Guncel repo durusu
+
+- Bu repo artik truth contract'i temizlenmis bir production-shaped starter'dir; vitrin demosu degil, tam urun platformu da degil.
+- Browser dogrulama hikayesi mock-backed regresyon ile live-stack smoke arasinda net ayrildi.
+- Ileri seviye ops katmani hala opsiyoneldir; fakat kanit ve attestation gereksinimleri artik dogru belgelenir.
+
+## Muhtemel sonraki iyilestirme alanlari
+
+- dependency policy matrix'inin admin diagnostics yuzeyinde daha zengin sunulmasi
+- semantik governance scriptleri icin daha fazla fixture tabanli coverage
+- live-stack browser smoke'un nightly disinda daha sik host-backed lane'e alinip alinmayacaginin kararlastirilmasi
 
 ## Oneri
 
-Monorepo yapisini koru. Mevcut stack'i operasyonel baseline olarak kabul et ve bir sonraki adimi daha agir platforma gecis degil, ilk canli host evidence harvest'i, signed attestation rollout'u ve duzenli sertifika/anahtar rotasyonu olarak ele al.
+Projeyi production-shaped starter olarak konumlandirmaya devam et.
+Mevcut topolojiyi koru.
+Bir sonraki adimi yeni operator ozelligi eklemek yerine maintainability ve operator ergonomisine ayir.

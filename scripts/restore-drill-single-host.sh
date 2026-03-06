@@ -256,7 +256,7 @@ fetch_request_logs_for_fixture() {
   local token="$2"
   local fixture_file="$3"
   local logs_dir="$4"
-  local trace_id index
+  local trace_id index raw_file
 
   mkdir -p "$logs_dir"
   index=0
@@ -264,10 +264,53 @@ fetch_request_logs_for_fixture() {
     if [[ -z "$trace_id" ]]; then
       continue
     fi
+    raw_file="$(mktemp)"
     curl -fsS \
       -H "Authorization: Bearer $token" \
       "$api_base_url/api/v1/admin/request-logs?traceId=$trace_id&limit=10" \
-      > "$logs_dir/request-logs-$index.json"
+      > "$raw_file"
+    python3 - "$raw_file" "$logs_dir/request-logs-$index.json" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+from urllib.parse import urlsplit
+
+input_path = pathlib.Path(sys.argv[1])
+output_path = pathlib.Path(sys.argv[2])
+payload = json.loads(input_path.read_text(encoding="utf-8"))
+items = payload.get("items", [])
+sanitized = []
+
+for item in items:
+    raw_path = str(item.get("path", "") or "")
+    split_path = urlsplit(raw_path)
+    trace_id = str(item.get("traceId", "") or "")
+    sanitized.append(
+        {
+            "path": split_path.path or raw_path,
+            "method": item.get("method", ""),
+            "durationMs": item.get("durationMs", 0),
+            "statusCode": item.get("statusCode", 0),
+            "occurredAt": item.get("occurredAt", ""),
+            "traceId": trace_id,
+            "traceIdHash": hashlib.sha256(trace_id.encode("utf-8")).hexdigest()[:16] if trace_id else "",
+        }
+    )
+
+output = {
+    "schemaVersion": "restore-drill-request-log-archive-v1",
+    "redaction": {
+        "mode": "minimized",
+        "removedFields": ["ip", "queryString"],
+        "sourceItemCount": len(items),
+        "storedItemCount": len(sanitized),
+    },
+    "items": sanitized,
+}
+output_path.write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")
+PY
+    rm -f "$raw_file"
     index=$((index + 1))
   done < <(
     python3 - "$fixture_file" <<'PY'
@@ -468,10 +511,10 @@ main() {
 
   DEPLOY_REPORT_DIR="${DEPLOY_REPORT_DIR:-$ROOT_DIR/artifacts/restore-drill}" \
     DEPLOY_API_BASE_URL="$api_base_url" \
+    DEPLOY_ADMIN_PASSWORD="$DEPLOY_ADMIN_PASSWORD" \
     "$ROOT_DIR/scripts/archive-runtime-report.sh" \
     "$api_base_url" \
     "$DEPLOY_ADMIN_USER" \
-    "$DEPLOY_ADMIN_PASSWORD" \
     "${DEPLOY_REPORT_DIR:-$ROOT_DIR/artifacts/restore-drill}"
 
   DEPLOY_ADMIN_USER="$DEPLOY_ADMIN_USER" \

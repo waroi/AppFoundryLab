@@ -66,7 +66,7 @@ async function runApiContractSmoke() {
   assert(isObject(users.data), "users response must be an object");
   assert(Array.isArray(users.data.data), "users.data must be an array");
 
-  console.info(`frontend api contract smoke passed (${base})`);
+  process.stdout.write(`frontend api contract smoke passed (${base})\n`);
 }
 
 await assertFileContains("dist/index.html", 'data-testid="home-hero"');
@@ -79,4 +79,4 @@ await assertFileContains("dist/tr/test/index.html", 'data-testid="test-page-intr
 await assertFileContains("dist/tr/test/index.html", 'data-testid="restore-drill-preview"');
 await runApiContractSmoke();
 
-console.info("frontend smoke passed");
+process.stdout.write("frontend smoke passed\n");

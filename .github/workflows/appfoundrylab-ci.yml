@@ -31,7 +31,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23.x"
+          go-version: "1.24.0"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -97,7 +97,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23.x"
+          go-version: "1.24.0"
 
       - name: Download deps
         run: go mod tidy
@@ -262,6 +262,8 @@ jobs:
 
       - name: Trivy Filesystem Scan
         uses: aquasecurity/trivy-action@0.28.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           scan-type: fs
           format: sarif

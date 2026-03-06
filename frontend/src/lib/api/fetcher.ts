@@ -36,6 +36,13 @@ type CircuitState = {
   openedUntil: number;
 };
 
+type ErrorEnvelope = {
+  error?: {
+    code?: unknown;
+    message?: unknown;
+  };
+};
+
 const circuitStates = new Map<string, CircuitState>();
 
 export class ApiError extends Error {
@@ -99,6 +106,28 @@ function onRequestFailure(key: string): void {
   }
 }
 
+async function errorCodeFromResponse(response: Response): Promise<string> {
+  const fallback = `request_failed_${response.status}`;
+  const text = await response.text();
+  if (!text) {
+    return fallback;
+  }
+
+  try {
+    const payload = JSON.parse(text) as ErrorEnvelope;
+    if (typeof payload.error?.code === "string" && payload.error.code.length > 0) {
+      return payload.error.code;
+    }
+    if (typeof payload.error?.message === "string" && payload.error.message.length > 0) {
+      return payload.error.message;
+    }
+  } catch {
+    return fallback;
+  }
+
+  return fallback;
+}
+
 export async function fetchTyped<T>(
   path: string,
   validate: (payload: unknown) => payload is T,
@@ -126,7 +155,7 @@ export async function fetchTyped<T>(
           await sleep(backoff);
           continue;
         }
-        throw new ApiError(response.status, `request failed: ${response.status}`);
+        throw new ApiError(response.status, await errorCodeFromResponse(response));
       }
 
       const payload: unknown = await response.json();

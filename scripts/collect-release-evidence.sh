@@ -26,6 +26,22 @@ fi
 mkdir -p "$OUT_DIR"
 "$ROOT_DIR/scripts/release-catalog.sh" export-ledger "$CATALOG_PATH" latest "$OUT_DIR/release-ledger-latest.json" >/dev/null
 
+require_attestation=false
+require_signed_attestation=false
+case "$ENVIRONMENT" in
+  staging|production)
+    require_attestation=true
+    require_signed_attestation=true
+    ;;
+esac
+
+if [[ -n "${RELEASE_EVIDENCE_REQUIRE_ATTESTATION:-}" ]]; then
+  require_attestation="${RELEASE_EVIDENCE_REQUIRE_ATTESTATION}"
+fi
+if [[ -n "${RELEASE_EVIDENCE_REQUIRE_SIGNED_ATTESTATION:-}" ]]; then
+  require_signed_attestation="${RELEASE_EVIDENCE_REQUIRE_SIGNED_ATTESTATION}"
+fi
+
 status=0
 if python3 - "$CATALOG_PATH" <<'PY' >/dev/null
 import json
@@ -48,7 +64,45 @@ elif [[ "$status" != "0" ]]; then
   exit "$status"
 fi
 
-python3 - "$ENVIRONMENT" "$CATALOG_PATH" "$LEDGER_DIR" "$OUT_DIR" <<'PY'
+verify_attestations() {
+  local require_any="$1"
+  local require_signed="$2"
+  local ledger
+
+  shopt -s nullglob
+  for ledger in "$LEDGER_DIR"/release-ledger-*.json; do
+    case "$ledger" in
+      *.attestation.json) continue ;;
+    esac
+
+    local attestation="${ledger%.json}.attestation.json"
+    if [[ "$require_any" == "true" && ! -f "$attestation" ]]; then
+      echo "attestation missing for ledger: $ledger" >&2
+      return 1
+    fi
+    if [[ ! -f "$attestation" ]]; then
+      continue
+    fi
+
+    "$ROOT_DIR/scripts/verify-release-ledger-attestation.sh" "$ledger" "$attestation" >/dev/null
+    if [[ "$require_signed" == "true" ]]; then
+      python3 - "$attestation" <<'PY'
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+mode = payload.get("verification", {}).get("mode", "")
+if mode != "signing-key":
+    raise SystemExit(f"signed attestation required for {sys.argv[1]}")
+PY
+    fi
+  done
+}
+
+verify_attestations "$require_attestation" "$require_signed_attestation"
+
+python3 - "$ENVIRONMENT" "$CATALOG_PATH" "$LEDGER_DIR" "$OUT_DIR" "$require_attestation" "$require_signed_attestation" <<'PY'
 import json
 import pathlib
 import sys
@@ -59,6 +113,8 @@ environment = sys.argv[1]
 catalog_path = pathlib.Path(sys.argv[2]).resolve()
 ledger_dir = pathlib.Path(sys.argv[3]).resolve()
 out_dir = pathlib.Path(sys.argv[4]).resolve()
+require_attestation = sys.argv[5] == "true"
+require_signed_attestation = sys.argv[6] == "true"
 catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
 entries = sorted(
     catalog.get("entries", []),
@@ -84,9 +140,17 @@ def attestation_for_release(release_id: str) -> str:
     return ""
 
 
+def attestation_mode(attestation_path: str) -> str:
+    if not attestation_path:
+        return ""
+    payload = json.loads(pathlib.Path(attestation_path).read_text(encoding="utf-8"))
+    return payload.get("verification", {}).get("mode", "")
+
+
 def summary_entry(entry: dict) -> dict:
     operations = entry.get("operations", [])
     latest_operation = operations[-1] if operations else {}
+    attestation_path = attestation_for_release(entry.get("releaseId", ""))
     return {
         "releaseId": entry.get("releaseId", ""),
         "createdAt": entry.get("createdAt", ""),
@@ -96,7 +160,8 @@ def summary_entry(entry: dict) -> dict:
         "operations": len(operations),
         "latestOperation": latest_operation.get("operation", ""),
         "latestOperationAt": latest_operation.get("recordedAt", ""),
-        "attestationPath": attestation_for_release(entry.get("releaseId", "")),
+        "attestationPath": attestation_path,
+        "attestationMode": attestation_mode(attestation_path),
     }
 
 
@@ -114,6 +179,10 @@ summary = {
     "catalogPath": str(catalog_path),
     "ledgerDir": str(ledger_dir),
     "totalEntries": len(entries),
+    "requirements": {
+        "attestationRequired": require_attestation,
+        "signedAttestationRequired": require_signed_attestation,
+    },
     "operationCounts": dict(sorted(operation_counts.items())),
     "latest": summary_entry(entries[0]) if entries else {},
     "previous": summary_entry(entries[1]) if len(entries) > 1 else {},
@@ -132,6 +201,8 @@ lines = [
     f"- Catalog path: {summary['catalogPath']}",
     f"- Ledger dir: {summary['ledgerDir']}",
     f"- Total releases in catalog: {summary['totalEntries']}",
+    f"- Attestation required: {summary['requirements']['attestationRequired']}",
+    f"- Signed attestation required: {summary['requirements']['signedAttestationRequired']}",
     "",
     "## Operation Counts",
 ]
@@ -154,6 +225,7 @@ for label in ("latest", "previous"):
             f"- Latest operation: {payload.get('latestOperation', '') or 'n/a'}",
             f"- Latest operation at: {payload.get('latestOperationAt', '') or 'n/a'}",
             f"- Attestation path: {payload.get('attestationPath', '') or 'n/a'}",
+            f"- Attestation mode: {payload.get('attestationMode', '') or 'n/a'}",
         ]
     )
 

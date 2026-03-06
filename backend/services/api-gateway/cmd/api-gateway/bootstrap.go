@@ -71,6 +71,10 @@ func initPostgres(ctx context.Context, cfg runtimeConfig) (*pgxpool.Pool, error)
 	if err != nil {
 		return nil, handleDependencyInitError(cfg.StrictDependencies, "postgres init", err)
 	}
+	if err := pool.Ping(ctx); err != nil {
+		database.ResetPostgresPool()
+		return pool, handleDependencyInitError(cfg.StrictDependencies, "postgres ping", err)
+	}
 
 	if !cfg.AutoMigrate {
 		return pool, nil
@@ -91,6 +95,10 @@ func initRedis(ctx context.Context, cfg runtimeConfig) (*redis.Client, error) {
 	if err != nil {
 		return nil, handleDependencyInitError(cfg.StrictDependencies, "redis init", err)
 	}
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		database.ResetRedisClient()
+		return redisClient, handleDependencyInitError(cfg.StrictDependencies, "redis ping", err)
+	}
 	return redisClient, nil
 }
 
@@ -98,6 +106,12 @@ func initWorker(ctx context.Context, cfg runtimeConfig) (*worker.Client, error) 
 	workerClient, err := worker.NewClient(ctx)
 	if err != nil {
 		if warnErr := handleDependencyInitError(cfg.StrictDependencies, "worker grpc init", err); warnErr != nil {
+			return nil, warnErr
+		}
+		return nil, nil
+	}
+	if _, err := workerClient.Health(ctx); err != nil {
+		if warnErr := handleDependencyInitError(cfg.StrictDependencies, "worker grpc health", err); warnErr != nil {
 			return nil, warnErr
 		}
 		return nil, nil

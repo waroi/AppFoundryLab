@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -77,4 +78,30 @@ func TestIncidentEventJSONContract(t *testing.T) {
 	if len(body) == 0 {
 		t.Fatal("expected non-empty incident payload")
 	}
+}
+
+func TestLoggerHealthResponseShape(t *testing.T) {
+	t.Run("healthy mongo", func(t *testing.T) {
+		statusCode, payload := loggerHealthPayload(nil)
+		if statusCode != http.StatusOK {
+			t.Fatalf("expected 200, got %d", statusCode)
+		}
+		if payload["status"] != "ok" {
+			t.Fatalf("expected ok payload, got %v", payload["status"])
+		}
+	})
+
+	t.Run("degraded mongo", func(t *testing.T) {
+		lastErr := errors.New("mongo down")
+		statusCode, payload := loggerHealthPayload(lastErr)
+		if statusCode != http.StatusServiceUnavailable {
+			t.Fatalf("expected 503, got %d", statusCode)
+		}
+		if payload["status"] != "degraded" {
+			t.Fatalf("expected degraded payload, got %v", payload["status"])
+		}
+		if payload["lastError"] != lastErr.Error() {
+			t.Fatalf("expected lastError to be present, got %v", payload["lastError"])
+		}
+	})
 }

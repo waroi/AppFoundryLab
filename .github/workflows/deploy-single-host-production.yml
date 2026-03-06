@@ -87,6 +87,8 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
           ADMIN_USER: ${{ secrets.PRODUCTION_ADMIN_USERNAME }}
           ADMIN_PASSWORD: ${{ secrets.PRODUCTION_ADMIN_PASSWORD }}
+          LEDGER_ATTESTATION_SIGNING_KEY: ${{ secrets.RELEASE_LEDGER_ATTESTATION_KEY }}
+          RELEASE_EVIDENCE_AUDIT_TARGET: ${{ vars.RELEASE_EVIDENCE_AUDIT_TARGET }}
           GHCR_USERNAME: ${{ vars.PRODUCTION_GHCR_USERNAME }}
           GHCR_TOKEN: ${{ secrets.PRODUCTION_GHCR_TOKEN }}
         run: |
@@ -106,9 +108,17 @@ jobs:
                 exit 1
               fi
             done
+            if [ -z "${RELEASE_EVIDENCE_AUDIT_TARGET:-}" ]; then
+              echo "missing required production evidence export target: RELEASE_EVIDENCE_AUDIT_TARGET" >&2
+              exit 1
+            fi
           fi
           if [ "$DEPLOY_MODE" = "build" ] && [ -z "$DEPLOY_REF" ]; then
             echo "git_ref is required when deploy_mode=build" >&2
+            exit 1
+          fi
+          if [ -z "${LEDGER_ATTESTATION_SIGNING_KEY:-}" ]; then
+            echo "missing required production attestation secret: RELEASE_LEDGER_ATTESTATION_KEY" >&2
             exit 1
           fi
 
@@ -224,7 +234,7 @@ jobs:
         env:
           LEDGER_ATTESTATION_SIGNING_KEY: ${{ secrets.RELEASE_LEDGER_ATTESTATION_KEY }}
           LEDGER_ATTESTATION_KEY_ID: ${{ vars.RELEASE_LEDGER_ATTESTATION_KEY_ID }}
-          LEDGER_ATTESTATION_REQUIRE_SIGNED: ${{ vars.RELEASE_LEDGER_ATTESTATION_REQUIRED || 'false' }}
+          LEDGER_ATTESTATION_REQUIRE_SIGNED: 'true'
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -239,6 +249,9 @@ jobs:
 
       - name: Build production release evidence summary
         if: always() && env.DEPLOY_MODE == 'image'
+        env:
+          RELEASE_EVIDENCE_REQUIRE_ATTESTATION: 'true'
+          RELEASE_EVIDENCE_REQUIRE_SIGNED_ATTESTATION: 'true'
         run: |
           set -euo pipefail
           mkdir -p ./artifacts/release-evidence/production

@@ -147,11 +147,17 @@ func evaluateReadiness(ctx context.Context, workerClient *worker.Client) (int, m
 	pg, pgErr := database.PostgresPool(ctx)
 	if pgErr == nil {
 		pgErr = pg.Ping(ctx)
+		if pgErr != nil {
+			database.ResetPostgresPool()
+		}
 	}
 
 	redisClient, redisErr := database.RedisClient(ctx)
 	if redisErr == nil {
 		redisErr = redisClient.Ping(ctx).Err()
+		if redisErr != nil {
+			database.ResetRedisClient()
+		}
 	}
 
 	var workerErr error

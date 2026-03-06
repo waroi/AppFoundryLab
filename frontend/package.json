@@ -9,10 +9,12 @@
     "preview": "astro preview --host 0.0.0.0 --port 4321",
     "smoke": "node scripts/smoke.mjs",
     "e2e:bootstrap": "../scripts/bootstrap-playwright-linux.sh --frontend-dir .",
-    "e2e": "./scripts/run-playwright.sh",
+    "e2e": "playwright test",
+    "e2e:live": "node ./node_modules/playwright/cli.js test --config playwright.live.config.mjs",
     "check": "astro check",
     "lint": "biome check .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "test": "node ./node_modules/vitest/vitest.mjs run"
   },
   "dependencies": {
     "@astrojs/svelte": "^7.2.5",
@@ -20,16 +22,19 @@
     "astro": "^5.2.0",
     "flowbite": "^4.0.1",
     "flowbite-svelte": "^0.46.0",
-    "svelte": "^5.20.0"
+    "svelte": "^5.20.0",
+    "tailwindcss": "3.4.17"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.6",
     "@biomejs/biome": "^2.4.5",
     "@playwright/test": "^1.58.2",
+    "@types/bun": "^1.3.10",
     "autoprefixer": "^10.4.20",
+    "bun-types": "^1.3.10",
     "postcss": "^8.5.2",
     "sass": "^1.85.1",
-    "tailwindcss": "^4.2.1",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "vitest": "^4.0.18"
   }
 }

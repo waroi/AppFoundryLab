@@ -59,7 +59,7 @@ Key environment variables:
 3. Open the mapped runbook.
 4. Review persistent incident events.
 5. Query `GET /api/v1/admin/request-logs?traceId=<id>` when you need request-level correlation.
-6. After deploys, archive the runtime report with [archive-runtime-report.sh](/mnt/d/w/AppFoundryLab/scripts/archive-runtime-report.sh).
+6. After deploys, archive the runtime report with [archive-runtime-report.sh](/mnt/d/w/AppFoundryLab/scripts/archive-runtime-report.sh) using `DEPLOY_ADMIN_PASSWORD` or `--password-stdin`.
 7. Back up the logger database as part of [backup-single-host.sh](/mnt/d/w/AppFoundryLab/scripts/backup-single-host.sh).
 8. Prune old incident records with [prune-incident-events.sh](/mnt/d/w/AppFoundryLab/scripts/prune-incident-events.sh).
 
@@ -68,4 +68,5 @@ Key environment variables:
 - the journal persists to Mongo via the logger service
 - webhook fan-out is still available, but now expects signed and allowlisted destinations
 - request-log trace correlation is available through the logger backend and admin API
+- archived request-log evidence is minimized before export
 - restore drills and host-level incident recovery are now scripted, but real-host evidence still needs to be captured outside this workspace
