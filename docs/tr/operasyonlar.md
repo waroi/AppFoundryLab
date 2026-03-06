@@ -11,6 +11,10 @@
 - `BACKUP_AWS_ENDPOINT_URL`
 - `BACKUP_RETENTION_DAYS`
 - `BACKUP_ENCRYPTION_PASSPHRASE`
+- `REQUEST_LOG_TRUSTED_PROXY_CIDRS`
+- `LOGGER_HEALTH_TIMEOUT_MS`
+- `LOGGER_INGEST_TIMESTAMP_MAX_AGE_SECONDS`
+- `LOGGER_INGEST_TIMESTAMP_MAX_FUTURE_SKEW_SECONDS`
 - `ENABLE_OBSERVABILITY_STACK`
 - `ENABLE_OPERATOR_PROMETHEUS_ACCESS`
 - `PROMETHEUS_OPERATOR_ACCESS_MODE`
@@ -70,6 +74,7 @@ RELEASE_CATALOG_PATH=./artifacts/release-catalog/staging/catalog.json ./scripts/
 
 - Prometheus gateway ve logger metrics endpoint'lerini private single-host network uzerinden scrape eder
 - request log kayitlari logger backend uzerinden Mongo'ya yazilir, `GET /api/v1/admin/request-logs` ile sorgulanir ve admin trace lookup UI'da gosterilir
+- `GET /api/v1/admin/runtime-config` ve admin diagnostics paneli artik dependency policy matrix'i ile birlikte trusted proxy CIDR'larini ve logger timing knob'larini da yayinlar
 - operator erisimi gerekiyorsa `ENABLE_OPERATOR_PROMETHEUS_ACCESS=true` ile basic-auth veya mTLS proxy katmani acilabilir
 - webhook fan-out korunur, fakat artik HMAC signing ve allowlist ister
 - release ledger ciktilari `attest-release-ledger.sh` ve `verify-release-ledger-attestation.sh` ile dogrulanmasi beklenen zorunlu kanit haline geldi
@@ -80,6 +85,7 @@ RELEASE_CATALOG_PATH=./artifacts/release-catalog/staging/catalog.json ./scripts/
 
 - `release-gate-full-nightly.yml`, `RUN_LIVE_STACK_BROWSER_SMOKE=true` ile `./scripts/quality-gate.sh ci-full` akisini da calistirir
 - `check-doc-drift.sh --mode strict` artik archive kullanimi, signed evidence gereksinimleri ve `e2e` ile `e2e:live` ayrimi icin semantik dogruluk kontrolu yapar
+- Keyboard/focus ve degraded-state browser regresyonu mock-backed Playwright tarafinda tutulur; `e2e:live` ise tam Docker-backed lane oldugu icin nightly veya on-demand release confidence olarak kalir
 
 ## 7. Sonraki okumalar
 

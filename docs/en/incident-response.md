@@ -4,6 +4,7 @@ Use the runtime diagnostics panel and the admin incident endpoints as the first 
 
 ## Main endpoints
 
+- `GET /api/v1/admin/runtime-config`
 - `GET /api/v1/admin/runtime-report`
 - `GET /api/v1/admin/runtime-incident-report`
 - `GET /api/v1/admin/incident-events`
@@ -23,9 +24,11 @@ Use the runtime diagnostics panel and the admin incident endpoints as the first 
 - the logger service stores those events in MongoDB
 - the monitor can now fan out to `logger`, `stdout`, `webhook`, or combinations of them
 - the admin UI shows the most recent events so operators can see whether the issue is new or recurring
+- the runtime config payload also shows trusted proxy CIDRs and logger timing knobs when you need to rule out config drift
 
 ## Operational follow-ups
 
+- review the runtime knob summary before assuming logger or proxy failures are dependency outages
 - archive deploy-time diagnostics with [archive-runtime-report.sh](/mnt/d/w/AppFoundryLab/scripts/archive-runtime-report.sh) using `DEPLOY_ADMIN_PASSWORD` or `--password-stdin`
 - prune old incident records with [prune-incident-events.sh](/mnt/d/w/AppFoundryLab/scripts/prune-incident-events.sh)
 - use [single-host-ops.yml](/mnt/d/w/AppFoundryLab/.github/workflows/single-host-ops.yml) to run remote pruning or rollback

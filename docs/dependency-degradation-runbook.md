@@ -24,6 +24,7 @@
 | `GET /api/v1/admin/runtime-metrics` and `GET /api/v1/admin/runtime-report` | Logger | No startup change; logger is optional. | No startup change; logger is optional. | Returns `200` and surfaces logger reachability, degraded health, and warnings in the payload. |
 
 This same matrix is also exposed through `GET /api/v1/admin/runtime-config` so operators can confirm the active degradation contract from the running system.
+The admin diagnostics panel now mirrors that matrix alongside trusted proxy CIDRs and logger timing knobs, which helps separate true dependency degradation from config drift.
 
 ## Immediate actions
 

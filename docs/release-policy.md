@@ -36,6 +36,7 @@ This short policy keeps the release process understandable and compatible with t
 
 - `dependabot-queue-review`
 - `load-shed-policy-review`
+- `live-stack-browser-smoke-review`
 - `release-evidence-audit-review`
 - `backup-lifecycle-drift-review`
 
@@ -44,7 +45,9 @@ This short policy keeps the release process understandable and compatible with t
 - Use `docs/release-checklist.json` as the canonical structured checklist.
 - Use `./scripts/quality-gate.sh sandbox-safe` inside permission-limited sandboxes, `host-strict` on real developer machines, and `ci-fast` / `ci-full` inside GitHub Actions.
 - Keep `Release Gate (fast)` aligned with CI.
-- Keep `Release Gate (full nightly)` aligned with nightly coverage.
+- Keep `Release Gate (full nightly)` aligned with nightly coverage and the 60 minute nightly budget in `release-gate-full-nightly.yml`.
+- `e2e:live` is the full Docker-backed admin login, runtime diagnostics, trace lookup, and runtime-knob smoke. The live Playwright config uses a 45 second test timeout, so the lane stays nightly or on-demand through `RUN_LIVE_STACK_BROWSER_SMOKE` instead of becoming a branch-protection required check.
+- Delivery and branch-protection docs should continue to exclude `live-stack-browser-smoke-review` from merge blockers while nightly governance keeps it as release evidence.
 - `Perf benchmark smoke + trend diff` must stay visible in both docs and automation.
 - For single-host VPS rollouts, archive the runtime report after deploy and review the resulting artifact before calling the rollout complete.
 - Review the latest release-evidence export and lifecycle drift report before treating the repository-side release proof as complete.

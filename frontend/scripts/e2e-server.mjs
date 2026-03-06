@@ -7,11 +7,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distRoot = path.resolve(__dirname, "..", "dist");
 const port = Number(process.env.E2E_PORT ?? 4173);
 const apiBaseUrl = `http://127.0.0.1:${port}/mock-api`;
+const adminUser = process.env.E2E_ADMIN_USER ?? "admin";
+const adminPassword = process.env.E2E_ADMIN_PASSWORD ?? "mock-admin-password";
+const developerUser = process.env.E2E_DEVELOPER_USER ?? "developer";
+const developerPassword = process.env.E2E_DEVELOPER_PASSWORD ?? "mock-developer-password";
+const degradedAdminUser = process.env.E2E_DEGRADED_ADMIN_USER ?? "degraded-admin";
+const runtimeErrorUser = process.env.E2E_RUNTIME_ERROR_USER ?? "runtime-error";
+const invalidUser = process.env.E2E_INVALID_USER ?? "wrong-user";
+const invalidPassword = process.env.E2E_INVALID_PASSWORD ?? "wrong-password";
 
 const runtimeConfigBody = `window.__APP_CONFIG__ = ${JSON.stringify({ apiBaseUrl })};\n`;
 
 const runtimeConfig = {
-  profile: "single-host",
+  profile: "secure",
   http: {
     legacyApiEnabled: false,
     legacyDeprecationDate: "2026-06-01",
@@ -35,16 +43,97 @@ const runtimeConfig = {
   operations: {
     autoMigrate: false,
     rateLimitStore: "redis",
-    redisFailureMode: "fail-open",
+    redisFailureMode: "closed",
     loggerEndpointConfigured: true,
     runtimeDiagnosticsCacheTtlMs: 1500,
-    incidentEventSink: "mongo",
+    incidentEventSink: "logger",
     incidentEventIntervalMs: 10000,
     incidentEventDedupeWindowMs: 120000,
     incidentEventWebhookConfigured: false,
     incidentEventRetentionDays: 30,
+    requestLogging: {
+      trustedProxyCidrs: ["127.0.0.1/32", "10.0.0.0/8"],
+    },
+    loggerTiming: {
+      healthTimeoutMs: 1500,
+      ingestTimestampMaxAgeSeconds: 300,
+      ingestTimestampMaxFutureSkewSeconds: 5,
+    },
+    dependencyPolicies: [
+      {
+        route: "GET /health/ready",
+        dependency: "postgres, redis, worker",
+        strictMode: "gateway startup fails if a required dependency cannot initialize",
+        nonStrictMode:
+          "gateway startup continues and readiness stays degraded until the dependency recovers",
+        runtimeBehavior:
+          "returns 503 with per-dependency checks while any required dependency is down",
+      },
+      {
+        route: "GET /api/v1/users",
+        dependency: "postgres",
+        strictMode: "gateway startup fails when postgres init, ping, or migration cannot complete",
+        nonStrictMode: "gateway startup continues even when postgres is unavailable",
+        runtimeBehavior:
+          "returns 200 demo fallback users only when DEMO_FALLBACK_USERS=true; otherwise returns 503 users_unavailable",
+      },
+      {
+        route: "POST /api/v1/compute/fibonacci and /api/v1/compute/hash",
+        dependency: "worker",
+        strictMode:
+          "gateway startup fails when the worker gRPC client cannot initialize or pass health checks",
+        nonStrictMode: "gateway startup continues without a worker client",
+        runtimeBehavior:
+          "returns 503 worker_unavailable until the worker becomes reachable; in-flight RPC failures return 502 worker_call_failed",
+      },
+      {
+        route: "POST /api/v1/auth/token and authenticated /api/v1/* rate limiting",
+        dependency: "redis",
+        strictMode: "gateway startup fails when redis init or ping cannot complete",
+        nonStrictMode: "gateway startup continues without a healthy redis client",
+        runtimeBehavior:
+          "distributed rate limiting follows RATE_LIMIT_REDIS_FAILURE_MODE=open|closed; open keeps serving traffic, closed returns 503 rate_limiter_unavailable",
+      },
+      {
+        route: "GET /api/v1/admin/request-logs",
+        dependency: "logger",
+        strictMode: "unchanged; logger is optional at gateway startup",
+        nonStrictMode: "unchanged; logger is optional at gateway startup",
+        runtimeBehavior:
+          "returns 200 with an empty list when LOGGER_ENDPOINT is unset; returns 503 logger_unavailable when logger cannot answer",
+      },
+      {
+        route: "GET /api/v1/admin/runtime-metrics and /api/v1/admin/runtime-report",
+        dependency: "logger",
+        strictMode: "unchanged; logger is optional at gateway startup",
+        nonStrictMode: "unchanged; logger is optional at gateway startup",
+        runtimeBehavior:
+          "returns 200 while surfacing logger reachability and degraded health warnings inside runtime diagnostics",
+      },
+    ],
   },
   warnings: [],
+};
+
+const degradedRuntimeConfig = {
+  ...runtimeConfig,
+  security: {
+    ...runtimeConfig.security,
+    strictDependencies: false,
+  },
+  operations: {
+    ...runtimeConfig.operations,
+    redisFailureMode: "open",
+    requestLogging: {
+      trustedProxyCidrs: [],
+    },
+    loggerTiming: {
+      healthTimeoutMs: 2500,
+      ingestTimestampMaxAgeSeconds: 600,
+      ingestTimestampMaxFutureSkewSeconds: 15,
+    },
+  },
+  warnings: ["strict dependencies are disabled; dependency-backed routes degrade per endpoint"],
 };
 
 const runtimeMetrics = {
@@ -191,6 +280,11 @@ const runtimeReport = {
   },
 };
 
+const degradedRuntimeReport = {
+  ...runtimeReport,
+  config: degradedRuntimeConfig,
+};
+
 const incidentEvents = {
   items: [
     {
@@ -332,7 +426,7 @@ const server = createServer(async (req, res) => {
 
   if (pathname === "/mock-api/api/v1/auth/token" && req.method === "POST") {
     const body = await readJsonBody(req);
-    if (body.password === "wrong-password" || body.username === "wrong-user") {
+    if (body.password === invalidPassword || body.username === invalidUser) {
       sendJson(
         res,
         {
@@ -346,7 +440,7 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    if (body.username === "runtime-error") {
+    if (body.username === runtimeErrorUser && body.password === adminPassword) {
       sendJson(res, {
         accessToken: "mock-runtime-error-token",
         tokenType: "Bearer",
@@ -356,12 +450,46 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    sendJson(res, {
-      accessToken: "mock-admin-token",
-      tokenType: "Bearer",
-      expiresIn: 3600,
-      role: "admin",
-    });
+    if (body.username === degradedAdminUser && body.password === adminPassword) {
+      sendJson(res, {
+        accessToken: "mock-degraded-admin-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+        role: "admin",
+      });
+      return;
+    }
+
+    if (body.username === adminUser && body.password === adminPassword) {
+      sendJson(res, {
+        accessToken: "mock-admin-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+        role: "admin",
+      });
+      return;
+    }
+
+    if (body.username === developerUser && body.password === developerPassword) {
+      sendJson(res, {
+        accessToken: "mock-developer-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+        role: "user",
+      });
+      return;
+    }
+
+    sendJson(
+      res,
+      {
+        error: {
+          code: "invalid_credentials",
+          message: "invalid username or password",
+        },
+      },
+      401,
+    );
     return;
   }
 
@@ -388,6 +516,10 @@ const server = createServer(async (req, res) => {
         },
         503,
       );
+      return;
+    }
+    if (bearerToken(req) === "mock-degraded-admin-token") {
+      sendJson(res, degradedRuntimeConfig);
       return;
     }
     sendJson(res, runtimeConfig);
@@ -418,6 +550,10 @@ const server = createServer(async (req, res) => {
         },
         503,
       );
+      return;
+    }
+    if (bearerToken(req) === "mock-degraded-admin-token") {
+      sendJson(res, degradedRuntimeReport);
       return;
     }
     sendJson(res, runtimeReport);

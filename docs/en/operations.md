@@ -11,6 +11,10 @@
 - `BACKUP_AWS_ENDPOINT_URL`
 - `BACKUP_RETENTION_DAYS`
 - `BACKUP_ENCRYPTION_PASSPHRASE`
+- `REQUEST_LOG_TRUSTED_PROXY_CIDRS`
+- `LOGGER_HEALTH_TIMEOUT_MS`
+- `LOGGER_INGEST_TIMESTAMP_MAX_AGE_SECONDS`
+- `LOGGER_INGEST_TIMESTAMP_MAX_FUTURE_SKEW_SECONDS`
 - `ENABLE_OBSERVABILITY_STACK`
 - `ENABLE_OPERATOR_PROMETHEUS_ACCESS`
 - `PROMETHEUS_OPERATOR_ACCESS_MODE`
@@ -70,6 +74,7 @@ RELEASE_CATALOG_PATH=./artifacts/release-catalog/staging/catalog.json ./scripts/
 
 - Prometheus scrapes the gateway and logger metrics endpoints on the private single-host network
 - request logs are stored in Mongo through the logger backend, queried through `GET /api/v1/admin/request-logs`, and surfaced in the admin trace lookup UI
+- `GET /api/v1/admin/runtime-config` and the admin diagnostics panel now surface dependency policies, trusted proxy CIDRs, and logger timing knobs from the running system
 - optional operator access can be proxied separately with `ENABLE_OPERATOR_PROMETHEUS_ACCESS=true` and either `PROMETHEUS_OPERATOR_ACCESS_MODE=basic-auth` or `PROMETHEUS_OPERATOR_ACCESS_MODE=mtls`
 - webhook fan-out is still available, but now requires HMAC signing and allowlisted destinations
 - release ledgers are expected to be attested and verified with `attest-release-ledger.sh` plus `verify-release-ledger-attestation.sh`
@@ -80,6 +85,7 @@ RELEASE_CATALOG_PATH=./artifacts/release-catalog/staging/catalog.json ./scripts/
 
 - `release-gate-full-nightly.yml` enables `RUN_LIVE_STACK_BROWSER_SMOKE=true` and exercises `./scripts/quality-gate.sh ci-full`
 - `check-doc-drift.sh --mode strict` now checks semantic truth for archive usage, signed evidence requirements, and the `e2e` versus `e2e:live` split
+- Mock-backed Playwright owns keyboard/focus and degraded-state regression coverage; `e2e:live` stays nightly or on-demand because the full Docker-backed stack has a higher cost and flake surface than regular merge gates
 
 ## 7. Read next
 

@@ -13,6 +13,14 @@ cd frontend
 ../.toolchain/bun/bin/bun run test
 ```
 
+Playwright bootstrap on Linux:
+
+```bash
+./scripts/bootstrap-playwright-linux.sh --frontend-dir frontend
+```
+
+The Playwright configs now auto-load `frontend/.playwright-linux.env` when that file exists, so the bootstrap is usually a one-time host step.
+
 Mock-backed browser regression:
 
 ```bash
@@ -75,13 +83,18 @@ cargo test
 
 - `smoke`: static build markers and optional API contract probes
 - `e2e`: mock-backed UI regression for selectors, locale/theme screenshots, and unhappy-path UI states
-- `e2e:live`: the Docker-backed admin login, runtime diagnostics, and trace lookup path that the user can reproduce in a browser
+- `e2e:live`: the Docker-backed admin login, runtime diagnostics, trace lookup, and runtime-knob visibility path used for nightly or on-demand release confidence
 - `go-test.sh`: the backend test suite running against the repo-local Go baseline declared in `backend/go.mod`
 - `dev-up`: readiness plus one authenticated admin smoke before reporting success
 - `release-gate.sh full`: repo-side static checks, Go tests, Rust tests, and frontend build/smoke
+- `check-doc-drift.sh`: canonical docs, `PROGRESS.md`, and strategic phase drift stay aligned
 
 ## 5. Current posture
 
 - The prior toolchain, `SystemStatus`, and `ci-full` drift items are closed.
 - The dependency degradation contract is now documented in [dependency-degradation-runbook.md](/mnt/d/w/AppFoundryLab/docs/dependency-degradation-runbook.md) and exposed through `GET /api/v1/admin/runtime-config`.
+- Runtime config and admin diagnostics now expose request logging trusted proxy CIDRs plus logger timing defaults for operator review.
+- Browser regression now covers keyboard/focus flow, degraded admin diagnostics, runtime-knob fallbacks, and live-stack runtime-knob visibility.
+- `e2e:live` remains a nightly or on-demand lane because the full Docker-backed stack has higher time, cost, and flake surface than branch-protection PR checks.
 - `PROGRESS.md` is the only canonical source for still-open repo backlog.
+- There is no currently active repo-owned phase left after closing runtime knob transparency, browser coverage depth, and live smoke governance.

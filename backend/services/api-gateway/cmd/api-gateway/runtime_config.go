@@ -3,6 +3,7 @@ package main
 import (
 	"strings"
 
+	"github.com/example/appfoundrylab/backend/pkg/runtimeknobs"
 	"github.com/example/appfoundrylab/backend/services/api-gateway/internal/handlers"
 	"github.com/example/appfoundrylab/backend/services/api-gateway/internal/runtimecfg"
 )
@@ -100,7 +101,15 @@ func diagnosticsSummary(cfg runtimeConfig) handlers.RuntimeConfigSummary {
 			IncidentEventDedupeWindow:      cfg.IncidentEventDedupeWindow.Milliseconds(),
 			IncidentEventWebhookConfigured: cfg.IncidentEventWebhookURL != "",
 			IncidentEventRetentionDays:     cfg.IncidentEventRetentionDays,
-			DependencyPolicies:             dependencyPoliciesSummary(cfg),
+			RequestLogging: handlers.RuntimeRequestLoggingSummary{
+				TrustedProxyCIDRs: runtimeknobs.RequestLogTrustedProxyCIDRs(),
+			},
+			LoggerTiming: handlers.RuntimeLoggerTimingSummary{
+				HealthTimeoutMS:                     runtimeknobs.LoggerHealthTimeout().Milliseconds(),
+				IngestTimestampMaxAgeSeconds:        int64(runtimeknobs.LoggerIngestTimestampMaxAge().Seconds()),
+				IngestTimestampMaxFutureSkewSeconds: int64(runtimeknobs.LoggerIngestTimestampMaxFutureSkew().Seconds()),
+			},
+			DependencyPolicies: dependencyPoliciesSummary(cfg),
 		},
 		Warnings: warnings,
 	}

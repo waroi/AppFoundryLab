@@ -36,18 +36,30 @@ type RuntimeDependencyPolicy struct {
 	RuntimeBehavior string `json:"runtimeBehavior"`
 }
 
+type RuntimeRequestLoggingSummary struct {
+	TrustedProxyCIDRs []string `json:"trustedProxyCidrs"`
+}
+
+type RuntimeLoggerTimingSummary struct {
+	HealthTimeoutMS                     int64 `json:"healthTimeoutMs"`
+	IngestTimestampMaxAgeSeconds        int64 `json:"ingestTimestampMaxAgeSeconds"`
+	IngestTimestampMaxFutureSkewSeconds int64 `json:"ingestTimestampMaxFutureSkewSeconds"`
+}
+
 type RuntimeOperationsSummary struct {
-	AutoMigrate                    bool                      `json:"autoMigrate"`
-	RateLimitStore                 string                    `json:"rateLimitStore"`
-	RedisFailureMode               string                    `json:"redisFailureMode"`
-	LoggerEndpointConfigured       bool                      `json:"loggerEndpointConfigured"`
-	RuntimeDiagnosticsCacheTTLMS   int64                     `json:"runtimeDiagnosticsCacheTtlMs"`
-	IncidentEventSink              string                    `json:"incidentEventSink"`
-	IncidentEventIntervalMS        int64                     `json:"incidentEventIntervalMs"`
-	IncidentEventDedupeWindow      int64                     `json:"incidentEventDedupeWindowMs"`
-	IncidentEventWebhookConfigured bool                      `json:"incidentEventWebhookConfigured"`
-	IncidentEventRetentionDays     int                       `json:"incidentEventRetentionDays"`
-	DependencyPolicies             []RuntimeDependencyPolicy `json:"dependencyPolicies"`
+	AutoMigrate                    bool                         `json:"autoMigrate"`
+	RateLimitStore                 string                       `json:"rateLimitStore"`
+	RedisFailureMode               string                       `json:"redisFailureMode"`
+	LoggerEndpointConfigured       bool                         `json:"loggerEndpointConfigured"`
+	RuntimeDiagnosticsCacheTTLMS   int64                        `json:"runtimeDiagnosticsCacheTtlMs"`
+	IncidentEventSink              string                       `json:"incidentEventSink"`
+	IncidentEventIntervalMS        int64                        `json:"incidentEventIntervalMs"`
+	IncidentEventDedupeWindow      int64                        `json:"incidentEventDedupeWindowMs"`
+	IncidentEventWebhookConfigured bool                         `json:"incidentEventWebhookConfigured"`
+	IncidentEventRetentionDays     int                          `json:"incidentEventRetentionDays"`
+	RequestLogging                 RuntimeRequestLoggingSummary `json:"requestLogging"`
+	LoggerTiming                   RuntimeLoggerTimingSummary   `json:"loggerTiming"`
+	DependencyPolicies             []RuntimeDependencyPolicy    `json:"dependencyPolicies"`
 }
 
 type RuntimeConfigSummary struct {

@@ -56,6 +56,8 @@ Yeni isleri su alanlarda gelistir:
 - `GET /api/v1/admin/runtime-incident-report`
 - `GET /api/v1/admin/incident-events`
 
+`runtime-config`, dependency policy matrix'i, request logging trusted proxy CIDR'lari ve logger timing knob'lari icin kanonik operator kontratidir. Yeni runtime davranisi eklediginde bu payload ile admin diagnostics panelini birlikte guncel tut.
+
 ## 6. Pratik kural
 
 Yeni bir operasyonel davranis eklediginde:
@@ -64,6 +66,7 @@ Yeni bir operasyonel davranis eklediginde:
 2. testi yaz
 3. ayni change set icinde dokumani guncelle
 4. mimari anlamli sekilde degistiyse proje analizi ve gelistirme planini da guncelle
+5. operator UI etkileniyorsa keyboard ve degraded-state browser coverage'ini de genislet
 
 ## 7. Sonraki okumalar
 

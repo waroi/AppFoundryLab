@@ -12,6 +12,7 @@
       "dependabot-queue-review",
       "perf-trend-diff-review",
       "load-shed-policy-review",
+      "live-stack-browser-smoke-review",
       "restore-drill-artifact-review",
       "release-evidence-audit-review",
       "backup-lifecycle-drift-review"
@@ -31,7 +32,7 @@
     {
       "id": "release-gate-full-optional",
       "kind": "manual",
-      "summary": "Nightly full gate should be reviewed for deeper release confidence."
+      "summary": "Nightly full gate should be reviewed for deeper release confidence and full-stack drift."
     },
     {
       "id": "ci-required-jobs-green",
@@ -57,6 +58,11 @@
       "id": "load-shed-policy-review",
       "kind": "manual",
       "summary": "Load shedding policy and runbook must match system behavior."
+    },
+    {
+      "id": "live-stack-browser-smoke-review",
+      "kind": "manual",
+      "summary": "Latest nightly or on-demand full Docker-backed e2e:live run should be reviewed when runtime, auth, or deploy surfaces changed."
     },
     {
       "id": "single-host-runtime-report-archive-review",
