@@ -300,50 +300,34 @@
 
 ## Pozitif Bulgular
 
-Proje genel olarak olgun bir boilerplate yapisina sahip:
+Bu dosya repo-owned backlog'un tek kanonik kaynagidir.
+Stratejik faz sirasi [docs/gelistirmePlanı.md](/mnt/d/w/AppFoundryLab/docs/gelistirmePlanı.md) icinde tutulur; aktif faz satiri bu dosya ile birebir ayni kalmalidir.
 
-- JWT kimlik dogrulama leeway, issuer/audience dogrulamasi ile dogru uygulanmis
-- CORS, CSP, X-Frame-Options gibi guvenlik header'lari mevcut
-- Request body limit (1MB) middleware ile zorunlu kiliniyor
-- HMAC-SHA256 imzalama logger ingest icin dogru uygulanmis
-- Rate limiter Redis basarisizliginda fail-open/fail-closed secenegi sunuyor
-- Load shedding atomic counter'lar ile dogru uygulanmis
-- gRPC mTLS destegi mevcut ve yapilandirmasi esnek
-- MongoDB indexleri dogru sekilde olusturuluyor
-- Incident event webhook HTTPS zorunlulugu ve host allowlist mevcut
-- CI pipeline kapsamli: lint, type check, build, test, security scan, SBOM, perf benchmark
-- Runtime diagnostik paneli admin icin kapsamli operasyonel gorunum sagliyor
-- Coklu dil destegi (EN/TR) tutarli anahtar yapisi ile uygulanmis
-- Docker compose'da tum veritabani portlari `127.0.0.1` bind ile localhost'a sinirlandirilmis
-- Single-host modunda `backend_internal` agi `internal: true` ile dogru izole edilmis
-- Dev sertifikalari `.gitignore` ile VCS disinda tutulmus; `certs-dev.sh` ile otomatik uretiliyor
-- Deployment pipeline release evidence, ledger attestation ve SBOM uretimi iceriyor
-- Backup/restore altyapisi drill otomasyonu ile test edilebilir durumda
-- Non-root container calistirma tum uygulama servislerinde uygulanmis
-- Post-deploy kontrol scripti frontend, API ve logger endpoint'lerini dogruluyor
-# PROGRESS
+Durum: 2026-03-06 itibariyla bu dosyada izlenen son uc faz tamamlandi.
+Aktif faz: Yok - repo-owned acik faz kalmadi
 
-Bu dosya yalnizca repo icinde halen acik olan backlog'u tutar.
-Tamamlanan maddeler burada tekrar listelenmez; README, analiz dokumanlari ve commit gecmisi kapatilan isi anlatir.
+## Son kapanan fazlar
 
-## Faz 1 - Admin Diagnostics Gorunurlugu
+### Faz 1 - Runtime Knob Transparency
 
-- [ ] `GET /api/v1/admin/runtime-config` icindeki `dependencyPolicies` alanini admin diagnostics UI'da okunur bir ozet olarak goster
-- [ ] Bu yeni diagnostics yuzeyi icin EN/TR copy ve component veya integration coverage ekle
+- `GET /api/v1/admin/runtime-config` ve `runtime-report` artik request logging trusted proxy CIDR'larini ve logger timing knob'larini yayinlar.
+- Admin diagnostics paneli runtime knob kartlarini tarayicida gosterir.
+- Operator dokumanlari runtime-config ve admin diagnostics ile ayni dilde guncellendi.
 
-## Faz 2 - Governance Script Coverage
+### Faz 2 - Browser Coverage Depth
 
-- [ ] `scripts/check-doc-drift.sh` icin fixture tabanli shell testleri ekle
-- [ ] Semantic truth checks'i archive usage, signed evidence ve mock/live smoke ayrimi senaryolariyla regression altina al
+- Mock-backed Playwright regresyonlari keyboard/focus akisi, degraded admin diagnostics ve runtime knob fallback gorunumunu kapsar.
+- Live-stack browser smoke runtime knob panelini assert eder.
+- Governance script regresyonlari duplicate `# PROGRESS` heading ve release-policy drift fixture'larini kapsar.
 
-## Faz 3 - Host-Backed Release Confidence
+### Faz 3 - Live Smoke Cost Governance
 
-- [ ] `e2e:live` kosusunun nightly-only, merge-blocking veya on-demand modellerinden hangisinde tutulacagina karar ver
-- [ ] Secilen policy'yi workflow, `quality-gate.sh` semantigi ve dokuman seti boyunca tek kontrat haline getir
+- `e2e:live` tam Docker-backed admin smoke olarak nightly ve on-demand release-confidence lane'i kabul edildi.
+- `RUN_LIVE_STACK_BROWSER_SMOKE=true` olmadikca PR ve merge kapilarinda kosmaz.
+- Policy, checklist ve workflow matrix'leri branch-protection disinda ama release evidence icinde tek karara sabitlendi.
 
-## Kabul Kriterleri
+## Governance notlari
 
-- `PROGRESS.md` yalnizca gercek repo-owned aciklari listeler
-- Ortam sahipli staging/production evidence icralari runbook seviyesinde kalir; backlog'u kirletmez
-- Mock-backed UI regresyonu ile gercek stack browser smoke'u ayri fakat ayni dokuman gercegine bagli kalir
-- Toolchain, kalite ve deployment dokumanlari ayni maturity sinyalini verir
+- `check-doc-drift.sh --mode strict` artik `PROGRESS.md` icinde tam olarak bir adet `# PROGRESS` heading ister.
+- `docs/gelistirmePlanı.md` icindeki `Sonraki aktif hedef:` satiri bu dosyadaki `Aktif faz:` degeriyle birebir ayni kalmalidir.
+- Yeni repo backlog'u ancak taze analiz ve test kaniti ile yeniden acilmalidir.

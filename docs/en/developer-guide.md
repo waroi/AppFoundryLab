@@ -56,6 +56,8 @@ Add new work here:
 - `GET /api/v1/admin/runtime-incident-report`
 - `GET /api/v1/admin/incident-events`
 
+`runtime-config` is the canonical operator contract for dependency policies, request logging trusted proxy CIDRs, and logger timing knobs. When you add new runtime behavior, keep that payload and the admin diagnostics panel aligned.
+
 ## 6. Practical rule
 
 Whenever you add a new operational behavior:
@@ -64,6 +66,7 @@ Whenever you add a new operational behavior:
 2. add tests
 3. update docs in the same change set
 4. update the project analysis and development plan if the architecture meaningfully changed
+5. extend keyboard/degraded-state browser coverage when the change affects the operator UI
 
 ## 7. Read next
 

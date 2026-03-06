@@ -28,6 +28,21 @@ export type FibonacciResponse = {
   value: number;
 };
 
+export type ApiErrorResponse = {
+  error: {
+    code: string;
+    message: string;
+  };
+};
+
+export type RuntimeDependencyPolicy = {
+  route: string;
+  dependency: string;
+  strictMode: string;
+  nonStrictMode: string;
+  runtimeBehavior: string;
+};
+
 export type RuntimeConfigResponse = {
   profile: string;
   http: {
@@ -61,6 +76,15 @@ export type RuntimeConfigResponse = {
     incidentEventDedupeWindowMs: number;
     incidentEventWebhookConfigured: boolean;
     incidentEventRetentionDays: number;
+    requestLogging: {
+      trustedProxyCidrs: string[];
+    };
+    loggerTiming: {
+      healthTimeoutMs: number;
+      ingestTimestampMaxAgeSeconds: number;
+      ingestTimestampMaxFutureSkewSeconds: number;
+    };
+    dependencyPolicies: RuntimeDependencyPolicy[];
   };
   warnings: string[];
 };

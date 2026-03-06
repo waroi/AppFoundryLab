@@ -1,0 +1,41 @@
+# Session 2026-03-06 Progress Phase Closure
+
+- Objective: close the three remaining `PROGRESS.md` phases, verify the supporting code and tests, and bring the repo documentation set to a no-open-phase state.
+- Decisions made:
+  - restore `PROGRESS.md` as the single canonical backlog file
+  - mark runtime knob transparency, browser coverage depth, and live smoke cost governance as completed
+  - keep `e2e:live` as nightly or on-demand release evidence rather than a branch-protection required check
+  - document runtime-config as the canonical operator contract for dependency policies, trusted proxy CIDRs, and logger timing knobs
+- Changed canonical docs:
+  - `PROGRESS.md`
+  - `README.md`
+  - `docs/gelistirmePlanı.md`
+  - `docs/appfoundrylab-teknik-analiz.md`
+  - `docs/en/project-analysis.md`
+  - `docs/tr/proje-analizi.md`
+  - `docs/en/testing-and-quality.md`
+  - `docs/tr/test-ve-kalite.md`
+  - `docs/release-policy.md`
+  - `docs/release-checklist.json`
+  - `docs/nightly-workflow-governance-matrix.md`
+  - `docs/delivery-workflow-governance-matrix.md`
+  - `docs/branch-protection-required-checks.md`
+  - `docs/en/operations.md`
+  - `docs/tr/operasyonlar.md`
+  - `docs/runtime-incident-response.md`
+  - `docs/en/incident-response.md`
+  - `docs/tr/incident-yonetimi.md`
+  - `docs/dependency-degradation-runbook.md`
+  - `docs/en/quick-start.md`
+  - `docs/tr/hizli-baslangic.md`
+  - `docs/en/developer-guide.md`
+  - `docs/tr/gelistirme-rehberi.md`
+  - `scripts/README.md`
+  - `multi_agent/todo/active-plan.md`
+  - `multi_agent/metrics/agent-performance.md`
+  - `multi_agent/metrics/token-usage.md`
+- Open risks:
+  - the live smoke lane still depends on host-owned Docker capacity and remains intentionally outside branch protection
+  - the repository worktree contains unrelated user changes outside this cycle
+- Suggested next prompt:
+  - rerun the same gates after the next runtime-config, admin diagnostics, or release-governance change and reopen `PROGRESS.md` only if fresh analysis discovers a new repo-owned phase

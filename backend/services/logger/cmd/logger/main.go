@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/example/appfoundrylab/backend/pkg/env"
+	"github.com/example/appfoundrylab/backend/pkg/runtimeknobs"
 	"github.com/example/appfoundrylab/backend/services/logger/internal/incidents"
 	"github.com/example/appfoundrylab/backend/services/logger/internal/ingest"
 	"github.com/example/appfoundrylab/backend/services/logger/internal/mongo"
@@ -26,6 +27,25 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
+
+const (
+	loggerHandlerTimeout        = 2 * time.Second
+	loggerQueryTimeout          = 2 * time.Second
+	loggerMaxBodyBytes    int64 = 1 << 20
+	loggerShutdownTimeout       = 5 * time.Second
+	loggerReadTimeout           = 5 * time.Second
+	loggerWriteTimeout          = 5 * time.Second
+	loggerIdleTimeout           = 30 * time.Second
+)
+
+type jsonErrorEnvelope struct {
+	Error jsonErrorBody `json:"error"`
+}
+
+type jsonErrorBody struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -50,68 +70,67 @@ func main() {
 
 	r := chi.NewRouter()
 	r.Use(chimiddleware.Recoverer)
-	r.Use(chimiddleware.Timeout(2 * time.Second))
+	r.Use(chimiddleware.Timeout(loggerHandlerTimeout))
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		httpStatus, payload := loggerHealthPayload(mongo.Health(r.Context()))
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(httpStatus)
-		_ = json.NewEncoder(w).Encode(payload)
+		healthCtx, cancel := context.WithTimeout(r.Context(), healthCheckTimeout())
+		defer cancel()
+
+		httpStatus, payload := loggerHealthPayload(mongo.Health(healthCtx))
+		writeJSON(w, httpStatus, payload)
 	})
 	r.Get("/metrics", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(q.Stats())
+		writeJSON(w, http.StatusOK, q.Stats())
 	})
 	r.Get("/metrics/prometheus", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
-		_, _ = w.Write([]byte(q.PrometheusMetrics()))
+		if _, err := w.Write([]byte(q.PrometheusMetrics())); err != nil {
+			log.Printf("logger service failed to write prometheus metrics: %v", err)
+		}
 	})
 	r.Get("/incident-events", func(w http.ResponseWriter, r *http.Request) {
 		limit := parseListLimit(r.URL.Query().Get("limit"), 20, 100)
 
-		queryCtx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		queryCtx, cancel := context.WithTimeout(r.Context(), loggerQueryTimeout)
 		defer cancel()
 
 		events, err := incidents.ListRecent(queryCtx, limit)
 		if err != nil {
-			http.Error(w, "failed to load incident events", http.StatusServiceUnavailable)
+			writeJSONError(w, http.StatusServiceUnavailable, "incident_events_unavailable", "failed to load incident events")
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"items": events})
+		writeJSON(w, http.StatusOK, map[string]any{"items": events})
 	})
 	r.Get("/incident-events/summary", func(w http.ResponseWriter, r *http.Request) {
-		queryCtx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		queryCtx, cancel := context.WithTimeout(r.Context(), loggerQueryTimeout)
 		defer cancel()
 
 		summary, err := incidents.Summarize(queryCtx)
 		if err != nil {
-			http.Error(w, "failed to load incident summary", http.StatusServiceUnavailable)
+			writeJSONError(w, http.StatusServiceUnavailable, "incident_summary_unavailable", "failed to load incident summary")
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(summary)
+		writeJSON(w, http.StatusOK, summary)
 	})
 	r.Get("/request-logs", func(w http.ResponseWriter, r *http.Request) {
 		limit := parseListLimit(r.URL.Query().Get("limit"), 20, 100)
 
-		queryCtx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		queryCtx, cancel := context.WithTimeout(r.Context(), loggerQueryTimeout)
 		defer cancel()
 
 		items, err := requestlogs.ListRecent(queryCtx, limit, r.URL.Query().Get("traceId"))
 		if err != nil {
-			http.Error(w, "failed to load request logs", http.StatusServiceUnavailable)
+			writeJSONError(w, http.StatusServiceUnavailable, "request_logs_unavailable", "failed to load request logs")
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
+		writeJSON(w, http.StatusOK, map[string]any{"items": items})
 	})
 
 	r.Post("/ingest", func(w http.ResponseWriter, r *http.Request) {
-		maxBody := int64(1 << 20)
+		maxBody := loggerMaxBodyBytes
 		if v := os.Getenv("MAX_REQUEST_BODY_BYTES"); v != "" {
 			if parsed, err := strconv.ParseInt(v, 10, 64); err == nil && parsed > 0 {
 				maxBody = parsed
@@ -119,55 +138,52 @@ func main() {
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 		if err := verifyIngestAuth(r, ingestSecret, allowUnsignedIngest); err != nil {
-			http.Error(w, "unauthorized ingest request", http.StatusUnauthorized)
+			writeJSONError(w, http.StatusUnauthorized, "unauthorized_ingest_request", "unauthorized ingest request")
 			return
 		}
 
 		var payload ingest.RequestLog
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			http.Error(w, "invalid json", http.StatusBadRequest)
+			writeJSONError(w, http.StatusBadRequest, "invalid_json", "invalid json")
 			return
 		}
 		if ok := q.Enqueue(payload); !ok {
-			w.WriteHeader(http.StatusAccepted)
-			_, _ = w.Write([]byte(`{"status":"dropped"}`))
+			writeJSON(w, http.StatusAccepted, map[string]string{"status": "dropped"})
 			return
 		}
-		w.WriteHeader(http.StatusAccepted)
-		_, _ = w.Write([]byte(`{"status":"queued"}`))
+		writeJSON(w, http.StatusAccepted, map[string]string{"status": "queued"})
 	})
 	r.Post("/incident-events", func(w http.ResponseWriter, r *http.Request) {
-		maxBody := int64(1 << 20)
+		maxBody := loggerMaxBodyBytes
 		r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 		if err := verifyIngestAuth(r, ingestSecret, allowUnsignedIngest); err != nil {
-			http.Error(w, "unauthorized incident request", http.StatusUnauthorized)
+			writeJSONError(w, http.StatusUnauthorized, "unauthorized_incident_request", "unauthorized incident request")
 			return
 		}
 
 		var payload incidents.Event
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			http.Error(w, "invalid json", http.StatusBadRequest)
+			writeJSONError(w, http.StatusBadRequest, "invalid_json", "invalid json")
 			return
 		}
 
-		insertCtx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		insertCtx, cancel := context.WithTimeout(r.Context(), loggerQueryTimeout)
 		defer cancel()
 		if err := incidents.Insert(insertCtx, payload); err != nil {
-			http.Error(w, "failed to persist incident event", http.StatusServiceUnavailable)
+			writeJSONError(w, http.StatusServiceUnavailable, "incident_event_persist_failed", "failed to persist incident event")
 			return
 		}
 
-		w.WriteHeader(http.StatusAccepted)
-		_, _ = w.Write([]byte(`{"status":"stored"}`))
+		writeJSON(w, http.StatusAccepted, map[string]string{"status": "stored"})
 	})
 
 	addr := ":" + env.GetWithDefault("LOGGER_PORT", "8090")
 	server := &http.Server{
 		Addr:         addr,
 		Handler:      r,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 5 * time.Second,
-		IdleTimeout:  30 * time.Second,
+		ReadTimeout:  loggerReadTimeout,
+		WriteTimeout: loggerWriteTimeout,
+		IdleTimeout:  loggerIdleTimeout,
 	}
 
 	stopCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -175,7 +191,7 @@ func main() {
 
 	go func() {
 		<-stopCtx.Done()
-		shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+		shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), loggerShutdownTimeout)
 		defer cancelShutdown()
 		cancel()
 		_ = server.Shutdown(shutdownCtx)
@@ -223,7 +239,7 @@ func verifyIngestAuth(r *http.Request, secret string, allowUnsignedIngest bool) 
 	}
 
 	now := time.Now().UTC()
-	if parsedTimestamp.Before(now.Add(-5*time.Minute)) || parsedTimestamp.After(now.Add(30*time.Second)) {
+	if parsedTimestamp.Before(now.Add(-ingestReplayMaxAge())) || parsedTimestamp.After(now.Add(ingestReplayMaxFutureSkew())) {
 		return errors.New("timestamp outside replay window")
 	}
 
@@ -269,4 +285,33 @@ func parseListLimit(raw string, defaultLimit, maxLimit int64) int64 {
 		return maxLimit
 	}
 	return parsed
+}
+
+func healthCheckTimeout() time.Duration {
+	return runtimeknobs.LoggerHealthTimeout()
+}
+
+func ingestReplayMaxAge() time.Duration {
+	return runtimeknobs.LoggerIngestTimestampMaxAge()
+}
+
+func ingestReplayMaxFutureSkew() time.Duration {
+	return runtimeknobs.LoggerIngestTimestampMaxFutureSkew()
+}
+
+func writeJSON(w http.ResponseWriter, status int, payload any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		log.Printf("logger service failed to encode json response: %v", err)
+	}
+}
+
+func writeJSONError(w http.ResponseWriter, status int, code, message string) {
+	writeJSON(w, status, jsonErrorEnvelope{
+		Error: jsonErrorBody{
+			Code:    code,
+			Message: message,
+		},
+	})
 }

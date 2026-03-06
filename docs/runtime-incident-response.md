@@ -18,6 +18,7 @@ This document explains how runtime diagnostics now turns into incident response.
 - the logger service persists incident events and trace-correlated request logs in MongoDB
 - webhook fan-out now supports HMAC signing and host allowlists
 - the admin API can query recent request logs by `traceId`
+- `runtime-config` now also exposes trusted proxy CIDRs and logger timing knobs so operators can separate dependency failures from config drift
 
 ## 3. Severity rules
 
@@ -55,7 +56,7 @@ Key environment variables:
 ## 5. Operator flow
 
 1. Login as `admin`.
-2. Check active alerts and recommended severity.
+2. Check active alerts, recommended severity, and the runtime knob summary in admin diagnostics.
 3. Open the mapped runbook.
 4. Review persistent incident events.
 5. Query `GET /api/v1/admin/request-logs?traceId=<id>` when you need request-level correlation.
@@ -69,4 +70,5 @@ Key environment variables:
 - webhook fan-out is still available, but now expects signed and allowlisted destinations
 - request-log trace correlation is available through the logger backend and admin API
 - archived request-log evidence is minimized before export
+- degraded admin diagnostics and runtime-knob visibility now have browser regression coverage
 - restore drills and host-level incident recovery are now scripted, but real-host evidence still needs to be captured outside this workspace

@@ -8,6 +8,8 @@
 ./scripts/dev-up.sh standard
 ```
 
+`bootstrap.sh` `.env`, gitignored `.env.docker.local` ve local development cert'lerini uretir. `.env.docker` repo icindeki template olarak kalir.
+
 Eger `dev-doctor` WSL icinde `docker compose unavailable` diyorsa Docker Desktop WSL integration'i acin veya su sekilde tekrar deneyin:
 
 ```bash
@@ -33,8 +35,8 @@ Varsayilan adresler:
 
 - `http://127.0.0.1:4321/` adresini acin
 - `admin` kullanicisi ile giris yapin
-- Sifre olarak `./scripts/bootstrap.sh` cikisindaki veya `.env.docker.local` icindeki `BOOTSTRAP_ADMIN_PASSWORD` degerini kullanin
-- Runtime ozeti, trace lookup paneli ve request log listesi yukleniyorsa ilk dogrulama tamamdir
+- Sifre olarak `./scripts/bootstrap.sh` cikisindaki veya yerelde uretilen `.env.docker.local` icindeki `BOOTSTRAP_ADMIN_PASSWORD` degerini kullanin
+- Runtime ozeti, runtime knob paneli, trace lookup paneli ve request log listesi yukleniyorsa ilk dogrulama tamamdir
 
 Gercek stack browser smoke:
 
@@ -49,6 +51,14 @@ Mock-backed hizli UI regresyonu:
 cd frontend
 ../.toolchain/bun/bin/bun run e2e
 ```
+
+Playwright Linux runtime kutuphaneleri eksikse bir kez su komutu calistirin:
+
+```bash
+./scripts/bootstrap-playwright-linux.sh --frontend-dir frontend
+```
+
+Sonrasinda `e2e` ve `e2e:live` kosulari `frontend/.playwright-linux.env` dosyasini otomatik yukler.
 
 ## 4. Credential drift durumunda yerel reset
 

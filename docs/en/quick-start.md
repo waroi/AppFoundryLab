@@ -8,6 +8,8 @@
 ./scripts/dev-up.sh standard
 ```
 
+`bootstrap.sh` generates `.env`, a gitignored `.env.docker.local`, and the local development certificates. `.env.docker` stays as the checked-in template.
+
 If `dev-doctor` reports `docker compose unavailable` on WSL, enable Docker Desktop WSL integration or rerun with:
 
 ```bash
@@ -33,8 +35,8 @@ Default URLs:
 
 - Open `http://127.0.0.1:4321/`
 - Sign in as `admin`
-- Use the password printed by `./scripts/bootstrap.sh` or stored in `.env.docker.local` under `BOOTSTRAP_ADMIN_PASSWORD`
-- Confirm that the runtime summary, trace lookup panel, and request-log list load successfully
+- Use the password printed by `./scripts/bootstrap.sh` or stored in the generated local `.env.docker.local` under `BOOTSTRAP_ADMIN_PASSWORD`
+- Confirm that the runtime summary, runtime knobs panel, trace lookup panel, and request-log list load successfully
 
 Automated real-stack browser smoke:
 
@@ -49,6 +51,14 @@ Mock-backed UI regression:
 cd frontend
 ../.toolchain/bun/bin/bun run e2e
 ```
+
+If Playwright is missing Linux runtime libraries, bootstrap them once:
+
+```bash
+./scripts/bootstrap-playwright-linux.sh --frontend-dir frontend
+```
+
+After that, both `e2e` and `e2e:live` automatically load `frontend/.playwright-linux.env`.
 
 ## 4. Reset local state when credentials drift
 

@@ -11,12 +11,15 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/netip"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/example/appfoundrylab/backend/pkg/env"
+	"github.com/example/appfoundrylab/backend/pkg/runtimeknobs"
 	"github.com/example/appfoundrylab/backend/services/api-gateway/pkg/httpx"
 )
 
@@ -260,6 +263,7 @@ func (s *asyncLogSender) sendOnce(logEntry RequestLog) error {
 
 func AsyncRequestLogger(next http.Handler) http.Handler {
 	sender := newAsyncLogSenderFromEnv()
+	trustedPrefixes := trustedProxyPrefixesFromEnv()
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -273,7 +277,7 @@ func AsyncRequestLogger(next http.Handler) http.Handler {
 		entry := RequestLog{
 			Path:       r.URL.Path,
 			Method:     r.Method,
-			IP:         clientIP(r),
+			IP:         clientIP(r, trustedPrefixes),
 			TraceID:    httpx.TraceIDFromContext(r.Context()),
 			DurationMS: time.Since(start).Milliseconds(),
 			StatusCode: recorder.statusCode,
@@ -291,14 +295,58 @@ func signLogPayload(secret, timestamp string, body []byte) string {
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
-func clientIP(r *http.Request) string {
-	xff := r.Header.Get("X-Forwarded-For")
-	if xff != "" {
-		return xff
-	}
+func clientIP(r *http.Request, trustedPrefixes []netip.Prefix) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		host = r.RemoteAddr
+	}
+
+	if forwarded := trustedForwardedFor(r, host, trustedPrefixes); forwarded != "" {
+		return forwarded
 	}
 	return host
+}
+
+func trustedForwardedFor(r *http.Request, remoteHost string, trustedPrefixes []netip.Prefix) string {
+	xff := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
+	if xff == "" {
+		return ""
+	}
+
+	remoteIP, err := netip.ParseAddr(remoteHost)
+	if err != nil {
+		return ""
+	}
+	if !isTrustedProxy(remoteIP, trustedPrefixes) {
+		return ""
+	}
+
+	for _, part := range strings.Split(xff, ",") {
+		candidate := strings.TrimSpace(part)
+		if candidate == "" {
+			continue
+		}
+		if parsed, err := netip.ParseAddr(candidate); err == nil {
+			return parsed.String()
+		}
+	}
+
+	return ""
+}
+
+func isTrustedProxy(remoteIP netip.Addr, trustedPrefixes []netip.Prefix) bool {
+	for _, prefix := range trustedPrefixes {
+		if prefix.Contains(remoteIP) {
+			return true
+		}
+	}
+	return false
+}
+
+func trustedProxyPrefixesFromEnv() []netip.Prefix {
+	prefixes, rejected := runtimeknobs.ParseTrustedProxyPrefixes(os.Getenv(runtimeknobs.RequestLogTrustedProxyCIDRsEnv))
+	for _, part := range rejected {
+		log.Printf("gateway request logger ignoring invalid trusted proxy entry %q", part)
+	}
+	return prefixes
 }
