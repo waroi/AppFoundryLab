@@ -256,6 +256,30 @@ function sendText(res, body, contentType = "text/plain; charset=utf-8", status =
   res.end(body);
 }
 
+async function readJsonBody(req) {
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(chunk);
+  }
+  if (chunks.length === 0) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    return {};
+  }
+}
+
+function bearerToken(req) {
+  const header = req.headers.authorization ?? "";
+  if (!header.startsWith("Bearer ")) {
+    return "";
+  }
+  return header.slice("Bearer ".length);
+}
+
 function resolveStaticCandidates(urlPathname) {
   if (urlPathname === "/") {
     return [path.join(distRoot, "index.html")];
@@ -307,6 +331,31 @@ const server = createServer(async (req, res) => {
   }
 
   if (pathname === "/mock-api/api/v1/auth/token" && req.method === "POST") {
+    const body = await readJsonBody(req);
+    if (body.password === "wrong-password" || body.username === "wrong-user") {
+      sendJson(
+        res,
+        {
+          error: {
+            code: "invalid_credentials",
+            message: "invalid username or password",
+          },
+        },
+        401,
+      );
+      return;
+    }
+
+    if (body.username === "runtime-error") {
+      sendJson(res, {
+        accessToken: "mock-runtime-error-token",
+        tokenType: "Bearer",
+        expiresIn: 3600,
+        role: "admin",
+      });
+      return;
+    }
+
     sendJson(res, {
       accessToken: "mock-admin-token",
       tokenType: "Bearer",
@@ -331,27 +380,75 @@ const server = createServer(async (req, res) => {
   }
 
   if (pathname === "/mock-api/api/v1/admin/runtime-config") {
+    if (bearerToken(req) === "mock-runtime-error-token") {
+      sendJson(
+        res,
+        {
+          error: { code: "runtime_report_unavailable", message: "runtime diagnostics unavailable" },
+        },
+        503,
+      );
+      return;
+    }
     sendJson(res, runtimeConfig);
     return;
   }
 
   if (pathname === "/mock-api/api/v1/admin/runtime-metrics") {
+    if (bearerToken(req) === "mock-runtime-error-token") {
+      sendJson(
+        res,
+        {
+          error: { code: "runtime_report_unavailable", message: "runtime diagnostics unavailable" },
+        },
+        503,
+      );
+      return;
+    }
     sendJson(res, runtimeMetrics);
     return;
   }
 
   if (pathname === "/mock-api/api/v1/admin/runtime-report") {
+    if (bearerToken(req) === "mock-runtime-error-token") {
+      sendJson(
+        res,
+        {
+          error: { code: "runtime_report_unavailable", message: "runtime diagnostics unavailable" },
+        },
+        503,
+      );
+      return;
+    }
     sendJson(res, runtimeReport);
     return;
   }
 
   if (pathname === "/mock-api/api/v1/admin/incident-events") {
+    if (bearerToken(req) === "mock-runtime-error-token") {
+      sendJson(
+        res,
+        {
+          error: { code: "runtime_report_unavailable", message: "runtime diagnostics unavailable" },
+        },
+        503,
+      );
+      return;
+    }
     sendJson(res, incidentEvents);
     return;
   }
 
   if (pathname === "/mock-api/api/v1/admin/request-logs") {
     const traceId = searchParams.get("traceId")?.trim() ?? "";
+    if (traceId === "trace-error") {
+      sendJson(
+        res,
+        { error: { code: "request_logs_unavailable", message: "request log lookup failed" } },
+        503,
+      );
+      return;
+    }
     const items = traceId ? requestLogs.filter((entry) => entry.traceId === traceId) : requestLogs;
     sendJson(res, { items });
     return;

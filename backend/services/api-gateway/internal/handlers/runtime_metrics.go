@@ -125,7 +125,9 @@ type RuntimeMetricsOptions struct {
 }
 
 type loggerHealthPayload struct {
-	Status string `json:"status"`
+	Status    string            `json:"status"`
+	Checks    map[string]string `json:"checks"`
+	LastError string            `json:"lastError"`
 }
 
 type loggerMetricsPayload struct {
@@ -354,11 +356,6 @@ func runtimeLoggerServiceSummary(client *http.Client, loggerEndpoint string) Run
 	}
 	defer healthResp.Body.Close()
 
-	if healthResp.StatusCode < http.StatusOK || healthResp.StatusCode >= http.StatusMultipleChoices {
-		summary.LastError = "logger health returned non-2xx"
-		return summary
-	}
-
 	var healthPayload loggerHealthPayload
 	if err := json.NewDecoder(healthResp.Body).Decode(&healthPayload); err != nil {
 		summary.LastError = err.Error()
@@ -367,6 +364,14 @@ func runtimeLoggerServiceSummary(client *http.Client, loggerEndpoint string) Run
 
 	summary.Reachable = true
 	summary.HealthStatus = healthPayload.Status
+	if healthPayload.LastError != "" {
+		summary.LastError = healthPayload.LastError
+	}
+	if healthResp.StatusCode < http.StatusOK || healthResp.StatusCode >= http.StatusMultipleChoices {
+		if summary.LastError == "" {
+			summary.LastError = "logger health returned non-2xx"
+		}
+	}
 
 	metricsReq, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/metrics", nil)
 	if err != nil {
@@ -442,6 +447,9 @@ func buildRuntimeMetricsWarnings(
 	}
 	if loggerService.Configured && !loggerService.Reachable {
 		warnings = append(warnings, "logger service is configured but unreachable")
+	}
+	if loggerService.Reachable && loggerService.HealthStatus != "" && loggerService.HealthStatus != "ok" {
+		warnings = append(warnings, "logger service health is degraded")
 	}
 	if loggerService.DropAlertThresholdHit {
 		warnings = append(warnings, "logger queue drop alert threshold is hit")
@@ -664,6 +672,17 @@ func loggerServiceAlertItem(loggerService RuntimeLoggerServiceSummary) RuntimeAl
 			Source:            "logger-service",
 			Message:           "logger service is configured but unreachable",
 			RecommendedAction: "verify logger container health, route, and shared secret settings",
+			BreachCount:       1,
+		}
+	}
+	if loggerService.Reachable && loggerService.HealthStatus != "" && loggerService.HealthStatus != "ok" {
+		return RuntimeAlertItem{
+			Code:              "logger.health_degraded",
+			Severity:          runtimeAlertSeverityCritical,
+			Status:            "active",
+			Source:            "logger-service",
+			Message:           "logger service health is degraded",
+			RecommendedAction: "inspect logger Mongo connectivity and recent persistence failures",
 			BreachCount:       1,
 		}
 	}

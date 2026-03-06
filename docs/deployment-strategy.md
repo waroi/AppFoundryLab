@@ -150,8 +150,12 @@ Hardware guidance:
 11. Archive the first runtime snapshot:
 
 ```bash
-./scripts/archive-runtime-report.sh https://api.example.com admin strong_password
+export DEPLOY_ADMIN_PASSWORD='replace-me'
+./scripts/archive-runtime-report.sh https://api.example.com admin ./artifacts/runtime-archive
+printf '%s' "$DEPLOY_ADMIN_PASSWORD" | ./scripts/archive-runtime-report.sh --password-stdin https://api.example.com admin ./artifacts/runtime-archive
 ```
+
+The archive path now minimizes request-log evidence by default, so the exported bundle keeps correlation value without raw IP/query-string leakage.
 
 ## 6. Immutable image promotion path
 
@@ -170,11 +174,17 @@ This workflow now:
 - validates `DEPLOY_MODE=image` against the single-host compose stack
 - uploads `release-manifest.env` and `release-manifest.json`
 - exports `artifacts/release-catalog/global/catalog.json` and `artifacts/release-ledgers/global/release-ledger-<release-id>.json`
-- generates `artifacts/release-evidence/global/release-evidence-summary.*` and per-ledger attestation files
+- generates `artifacts/release-evidence/global/release-evidence-summary.*` and signed per-ledger attestation files
 - can export evidence bundles to a long-term audit target with `scripts/export-release-evidence.sh`
 - promotes the same manifest to staging
 - exercises manifest-driven rollback and restore-drill workflows on staging
 - promotes the same manifest to production
+
+Image-promotion workflows assume these governance inputs are present:
+
+- `RELEASE_EVIDENCE_AUDIT_TARGET`
+- `RELEASE_LEDGER_ATTESTATION_KEY` or `LEDGER_ATTESTATION_SIGNING_KEY`
+- optional `RELEASE_LEDGER_ATTESTATION_KEY_ID`
 
 ### Deploy
 
@@ -237,6 +247,9 @@ Important env vars:
 - `PROMETHEUS_OPERATOR_TLS_KEY_FILE`
 - `PROMETHEUS_OPERATOR_CLIENT_CA_FILE`
 - `LEDGER_ATTESTATION_REQUIRE_SIGNED`
+- `RELEASE_EVIDENCE_AUDIT_TARGET`
+- `RELEASE_LEDGER_ATTESTATION_KEY`
+- `RELEASE_LEDGER_ATTESTATION_KEY_ID`
 - `INCIDENT_EVENT_WEBHOOK_URL`
 - `INCIDENT_EVENT_WEBHOOK_HMAC_SECRET`
 - `INCIDENT_EVENT_WEBHOOK_ALLOWED_HOSTS`
@@ -253,7 +266,7 @@ The same retention model can now be checked against an S3 bucket policy with `ch
 
 Restore drills created through `restore-drill-single-host.sh` also add `restore-drill-fixture.json` to the bundle and emit canonical `fixture-expected-*`, `fixture-actual-*`, `fixture-verification-*`, and `fixture-manifest-*` artifacts under `artifacts/restore-drill`.
 
-Image-mode deploy, rollback, and restore-drill workflows now also maintain environment-scoped `artifacts/release-catalog/<env>/catalog.json`, `artifacts/release-ledgers/<env>/release-ledger-*.json`, per-ledger attestation files, and `artifacts/release-evidence/<env>/release-evidence-summary.*` exports.
+Image-mode deploy, rollback, and restore-drill workflows now also maintain environment-scoped `artifacts/release-catalog/<env>/catalog.json`, `artifacts/release-ledgers/<env>/release-ledger-*.json`, signed per-ledger attestation files, and `artifacts/release-evidence/<env>/release-evidence-summary.*` exports.
 
 `rehearse-release-evidence-local.sh` provides the same release-catalog, ledger, attestation, summary, and optional audit-export chain against a local single-host deployment so the repo can prove the full flow even when a real staging host is not available.
 

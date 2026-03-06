@@ -69,6 +69,9 @@ func TestRuntimeRequestLogsHandler(t *testing.T) {
 		if res.Code != http.StatusServiceUnavailable {
 			t.Fatalf("expected 503, got %d", res.Code)
 		}
+		if !strings.Contains(res.Body.String(), `"code":"logger_unavailable"`) {
+			t.Fatalf("expected logger_unavailable code, got %s", res.Body.String())
+		}
 	})
 
 	t.Run("clamps oversized limit before proxying", func(t *testing.T) {
@@ -90,6 +93,18 @@ func TestRuntimeRequestLogsHandler(t *testing.T) {
 		RuntimeRequestLogsHandler("http://logger.local/ingest", client).ServeHTTP(res, req)
 		if res.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d", res.Code)
+		}
+	})
+
+	t.Run("returns bad request for invalid limit", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/request-logs?limit=not-a-number", nil)
+		res := httptest.NewRecorder()
+		RuntimeRequestLogsHandler("http://logger.local/ingest", nil).ServeHTTP(res, req)
+		if res.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d", res.Code)
+		}
+		if !strings.Contains(res.Body.String(), `"code":"invalid_query_limit"`) {
+			t.Fatalf("expected invalid_query_limit code, got %s", res.Body.String())
 		}
 	})
 }

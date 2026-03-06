@@ -8,6 +8,12 @@ log() {
   printf '[quality-gate] %s\n' "$1"
 }
 
+is_truthy() {
+  local raw="${1:-}"
+  raw="${raw,,}"
+  [[ "$raw" == "1" || "$raw" == "true" || "$raw" == "yes" || "$raw" == "on" ]]
+}
+
 run_common_checks() {
   log "running toolchain governance"
   "$ROOT_DIR/scripts/check-toolchain.sh"
@@ -35,6 +41,16 @@ run_release_gate_full() {
   "$ROOT_DIR/scripts/release-gate.sh" full
 }
 
+run_live_stack_browser_smoke_if_requested() {
+  if ! is_truthy "${RUN_LIVE_STACK_BROWSER_SMOKE:-false}"; then
+    log "skipping live stack browser smoke"
+    return
+  fi
+
+  log "running live stack browser smoke"
+  "$ROOT_DIR/scripts/live-stack-browser-smoke.sh" standard
+}
+
 main() {
   case "$MODE" in
     sandbox-safe)
@@ -46,6 +62,7 @@ main() {
       run_common_checks
       run_smoke_with_policy true
       run_release_gate_fast
+      run_live_stack_browser_smoke_if_requested
       ;;
     ci-fast)
       run_common_checks
@@ -55,6 +72,7 @@ main() {
       run_common_checks
       run_smoke_with_policy true
       run_release_gate_full
+      run_live_stack_browser_smoke_if_requested
       ;;
     *)
       echo "usage: ./scripts/quality-gate.sh [sandbox-safe|host-strict|ci-fast|ci-full]" >&2

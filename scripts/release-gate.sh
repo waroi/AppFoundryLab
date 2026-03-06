@@ -93,10 +93,7 @@ run_full_checks() {
   run_fast_checks
 
   log "running go tests"
-  (
-    cd "$ROOT_DIR/backend"
-    go test ./...
-  )
+  "$ROOT_DIR/scripts/go-test.sh"
 
   log "running rust tests"
   (

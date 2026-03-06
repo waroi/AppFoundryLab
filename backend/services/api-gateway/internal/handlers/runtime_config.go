@@ -28,17 +28,26 @@ type RuntimeSecuritySummary struct {
 	DefaultCredentialsInUse   bool   `json:"defaultCredentialsInUse"`
 }
 
+type RuntimeDependencyPolicy struct {
+	Route           string `json:"route"`
+	Dependency      string `json:"dependency"`
+	StrictMode      string `json:"strictMode"`
+	NonStrictMode   string `json:"nonStrictMode"`
+	RuntimeBehavior string `json:"runtimeBehavior"`
+}
+
 type RuntimeOperationsSummary struct {
-	AutoMigrate                    bool   `json:"autoMigrate"`
-	RateLimitStore                 string `json:"rateLimitStore"`
-	RedisFailureMode               string `json:"redisFailureMode"`
-	LoggerEndpointConfigured       bool   `json:"loggerEndpointConfigured"`
-	RuntimeDiagnosticsCacheTTLMS   int64  `json:"runtimeDiagnosticsCacheTtlMs"`
-	IncidentEventSink              string `json:"incidentEventSink"`
-	IncidentEventIntervalMS        int64  `json:"incidentEventIntervalMs"`
-	IncidentEventDedupeWindow      int64  `json:"incidentEventDedupeWindowMs"`
-	IncidentEventWebhookConfigured bool   `json:"incidentEventWebhookConfigured"`
-	IncidentEventRetentionDays     int    `json:"incidentEventRetentionDays"`
+	AutoMigrate                    bool                      `json:"autoMigrate"`
+	RateLimitStore                 string                    `json:"rateLimitStore"`
+	RedisFailureMode               string                    `json:"redisFailureMode"`
+	LoggerEndpointConfigured       bool                      `json:"loggerEndpointConfigured"`
+	RuntimeDiagnosticsCacheTTLMS   int64                     `json:"runtimeDiagnosticsCacheTtlMs"`
+	IncidentEventSink              string                    `json:"incidentEventSink"`
+	IncidentEventIntervalMS        int64                     `json:"incidentEventIntervalMs"`
+	IncidentEventDedupeWindow      int64                     `json:"incidentEventDedupeWindowMs"`
+	IncidentEventWebhookConfigured bool                      `json:"incidentEventWebhookConfigured"`
+	IncidentEventRetentionDays     int                       `json:"incidentEventRetentionDays"`
+	DependencyPolicies             []RuntimeDependencyPolicy `json:"dependencyPolicies"`
 }
 
 type RuntimeConfigSummary struct {

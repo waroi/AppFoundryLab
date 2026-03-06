@@ -10,35 +10,31 @@ AppFoundryLab yeniden kullanilabilir bir boilerplate icin dogru makro sekle sahi
 - yerel lifecycle scriptleri
 - iki dilli dokumantasyon
 
-Ana problem artik eksik capability degil; repo gercegi ile anlatinin ayni sey olmamasiydi.
+Ana problem artik eksik capability degil; repo gercegi ile anlatinin ayni sey olmamasiydi. Bu dongu en yuksek sinyalli truth gap'leri kapatti.
 
-## Halen kalan repo-ici bosluklar
-
-- ilk calistirma dokumanlari olgunlugu oldugundan fazla anlatiyor, gercek local smoke yolunu eksik birakiyordu
-- yerel bring-up kullanilabilirlikten cok liveness kanitliyordu
-- kalite dokumanlari ile `quality-gate.sh` semantigi `ci-full` etrafinda drift uretmisti
-- auth defaults ve contract kenarlari daha guvenli davranisa ihtiyac duyuyordu
-- frontend dogrulama hikayesinin mock-backed regresyon ile gercek stack browser smoke arasinda net ayrima ihtiyaci vardi
-
-## Bu dongude ne degisti
+## Bu dongude maddi olarak ne degisti
 
 - `dev-up` artik readiness, logger erisimi ve authenticated admin runtime endpoint'i dogrulamadan basari demez
-- `dev-down --volumes` credential drift recovery akisini desteklenen workflow icine cekti
-- frontend `/healthz` endpoint'i ve ayri bir live-stack Playwright smoke yolu kazandi
-- frontend `test` komutu ve Biome config'i tekrar durust hale getirildi
-- Fibonacci dogrulamasi worker siniri ile hizalandi (`0..93`)
-- gecersiz `LOCAL_AUTH_MODE` degerleri artik `generated`'a duserek daha guvenli davranir
-- README, hizli baslangic, test dokumanlari, teknik analiz ve `PROGRESS.md` ayni maturity sinyalini verir hale getirildi
+- repo-local Go baseline'i `backend/go.mod`, `toolchain.versions.json`, `check-toolchain.sh` ve `go-test.sh` uzerinden netlestirildi
+- dependency-backed route davranisi artik [dependency-degradation-runbook.md](/mnt/d/w/AppFoundryLab/docs/dependency-degradation-runbook.md) ve `GET /api/v1/admin/runtime-config` icinde acik
+- `archive-runtime-report.sh` artik positional admin password kabul etmez; request-log evidence ciktilari minimize edilir
+- signed release-ledger attestation artik staging/production workflow kontrati olarak belgelenir
+- dokuman drift governance'i sadece dosya degisimini degil semantik dogrulugu da denetler
 
-## Halen acik olanlar
+## Guncel repo durusu
 
-- repo-ici Go toolchain hizalamasi
-- Postgres/Redis/Mongo dependency recovery stratejisinin genisletilmesi
-- `SystemStatus.svelte` dosyasinin parcali bakim icin kucultulmesi ve daha derin test coverage
-- yuksek ortamlar icin evidence export redaction ve signed attestation enforcement
+- Bu repo artik truth contract'i temizlenmis bir production-shaped starter'dir; vitrin demosu degil, tam urun platformu da degil.
+- Browser dogrulama hikayesi mock-backed regresyon ile live-stack smoke arasinda net ayrildi.
+- Ileri seviye ops katmani hala opsiyoneldir; fakat kanit ve attestation gereksinimleri artik dogru belgelenir.
+
+## Muhtemel sonraki iyilestirme alanlari
+
+- dependency policy matrix'inin admin diagnostics yuzeyinde daha zengin sunulmasi
+- semantik governance scriptleri icin daha fazla fixture tabanli coverage
+- live-stack browser smoke'un nightly disinda daha sik host-backed lane'e alinip alinmayacaginin kararlastirilmasi
 
 ## Oneri
 
 Projeyi production-shaped starter olarak konumlandirmaya devam et.
 Mevcut topolojiyi koru.
-Bir sonraki adimi yeni operator ozelligi eklemek yerine runtime hardening, maintainability ve evidence hijyenine ayir.
+Bir sonraki adimi yeni operator ozelligi eklemek yerine maintainability ve operator ergonomisine ayir.

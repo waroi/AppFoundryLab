@@ -46,6 +46,16 @@ cp .env.single-host.example .env.single-host
 
 Restore drill artik deterministik bir business fixture seed eder, yeni olusturulan bundle'lara `restore-drill-fixture.json` ekler ve `artifacts/restore-drill` altinda kanonik dogrulama artifact'lari uretir. Backup bundle'lari da versioned local, SSH-copy veya S3/object-storage hedefleri icin `backup-catalog.json` ve `latest-bundle.txt` uretir.
 
+Runtime archive kullanimi artik env/stdin-onceliklidir:
+
+```bash
+export DEPLOY_ADMIN_PASSWORD='degistirin'
+./scripts/archive-runtime-report.sh https://api.example.com admin ./artifacts/runtime-archive
+printf '%s' "$DEPLOY_ADMIN_PASSWORD" | ./scripts/archive-runtime-report.sh --password-stdin https://api.example.com admin ./artifacts/runtime-archive
+```
+
+Export edilen request-log evidence ciktilari varsayilan olarak minimize edilir; IP ve ham query string gibi alanlar arsive yazilmaz.
+
 Docker Desktop yalnizca `docker.exe` sagliyorsa, deploy scriptlerini calistirmadan once `DOCKER_BIN="/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe"` export edin.
 
 ## Sonra VPS
@@ -69,7 +79,12 @@ Artik su workflow'lar var:
 - [backup-lifecycle-drift.yml](/mnt/d/w/AppFoundryLab/.github/workflows/backup-lifecycle-drift.yml)
 - [restore-drill-single-host.yml](/mnt/d/w/AppFoundryLab/.github/workflows/restore-drill-single-host.yml)
 
-Bu workflow'lar pinned-host SSH, runtime archive kaniti, release-evidence ozetleri, uzun omurlu audit export, opsiyonel signed enforcement ile ledger attestation, backup bundle, release katalogu ve ledger guncellemeleri, restore drill, S3 lifecycle drift check, otomatik GHCR manifest promotion, runtime frontend API konfigurasyonu ve basic-auth veya mTLS operator Prometheus proxy katmanini kapsar.
+Bu workflow'lar pinned-host SSH, runtime archive kaniti, release-evidence ozetleri, uzun omurlu audit export, signed ledger attestation, backup bundle, release katalogu ve ledger guncellemeleri, restore drill, S3 lifecycle drift check, otomatik GHCR manifest promotion, runtime frontend API konfigurasyonu ve basic-auth veya mTLS operator Prometheus proxy katmanini kapsar.
+
+Release-oriented image workflow'lari icin pratikte zorunlu girdiler sunlardir:
+- `RELEASE_EVIDENCE_AUDIT_TARGET`
+- `RELEASE_LEDGER_ATTESTATION_KEY` veya script seviyesindeki `LEDGER_ATTESTATION_SIGNING_KEY`
+- opsiyonel `RELEASE_LEDGER_ATTESTATION_KEY_ID`
 
 ## Devaminda oku
 

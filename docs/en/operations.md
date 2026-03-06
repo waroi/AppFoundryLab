@@ -22,6 +22,9 @@
 - `PROMETHEUS_OPERATOR_TLS_KEY_FILE`
 - `PROMETHEUS_OPERATOR_CLIENT_CA_FILE`
 - `LEDGER_ATTESTATION_REQUIRE_SIGNED`
+- `RELEASE_EVIDENCE_AUDIT_TARGET`
+- `RELEASE_LEDGER_ATTESTATION_KEY`
+- `RELEASE_LEDGER_ATTESTATION_KEY_ID`
 - `DOCKER_BIN`
 - `API_GATEWAY_IMAGE`
 - `LOGGER_IMAGE`
@@ -69,10 +72,16 @@ RELEASE_CATALOG_PATH=./artifacts/release-catalog/staging/catalog.json ./scripts/
 - request logs are stored in Mongo through the logger backend, queried through `GET /api/v1/admin/request-logs`, and surfaced in the admin trace lookup UI
 - optional operator access can be proxied separately with `ENABLE_OPERATOR_PROMETHEUS_ACCESS=true` and either `PROMETHEUS_OPERATOR_ACCESS_MODE=basic-auth` or `PROMETHEUS_OPERATOR_ACCESS_MODE=mtls`
 - webhook fan-out is still available, but now requires HMAC signing and allowlisted destinations
-- release ledgers can now be attested and verified with `attest-release-ledger.sh` plus `verify-release-ledger-attestation.sh`
+- release ledgers are expected to be attested and verified with `attest-release-ledger.sh` plus `verify-release-ledger-attestation.sh`
 - operator mTLS rollout should use [operator-observability-runbook.md](/mnt/d/w/AppFoundryLab/docs/operator-observability-runbook.md), `generate-operator-mtls-certs.sh`, and `check-operator-mtls-readiness.sh`
+- runtime archive exports are redacted/minimized by default and should use `DEPLOY_ADMIN_PASSWORD` or `--password-stdin` instead of positional secrets
 
-## 6. Read next
+## 6. Quality automation notes
+
+- `release-gate-full-nightly.yml` enables `RUN_LIVE_STACK_BROWSER_SMOKE=true` and exercises `./scripts/quality-gate.sh ci-full`
+- `check-doc-drift.sh --mode strict` now checks semantic truth for archive usage, signed evidence requirements, and the `e2e` versus `e2e:live` split
+
+## 7. Read next
 
 - [deployment.md](/mnt/d/w/AppFoundryLab/docs/en/deployment.md)
 - [deployment-strategy.md](/mnt/d/w/AppFoundryLab/docs/deployment-strategy.md)

@@ -72,6 +72,7 @@ func initPostgres(ctx context.Context, cfg runtimeConfig) (*pgxpool.Pool, error)
 		return nil, handleDependencyInitError(cfg.StrictDependencies, "postgres init", err)
 	}
 	if err := pool.Ping(ctx); err != nil {
+		database.ResetPostgresPool()
 		return pool, handleDependencyInitError(cfg.StrictDependencies, "postgres ping", err)
 	}
 
@@ -95,6 +96,7 @@ func initRedis(ctx context.Context, cfg runtimeConfig) (*redis.Client, error) {
 		return nil, handleDependencyInitError(cfg.StrictDependencies, "redis init", err)
 	}
 	if err := redisClient.Ping(ctx).Err(); err != nil {
+		database.ResetRedisClient()
 		return redisClient, handleDependencyInitError(cfg.StrictDependencies, "redis ping", err)
 	}
 	return redisClient, nil

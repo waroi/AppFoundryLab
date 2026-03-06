@@ -91,6 +91,144 @@ normalize_changed_files_override() {
     | sed '/^$/d'
 }
 
+semantic_failures=()
+
+note_semantic_failure() {
+  semantic_failures+=("$1")
+}
+
+require_file_contains() {
+  local path="$1"
+  local pattern="$2"
+  local description="$3"
+
+  if [[ ! -f "$path" ]]; then
+    note_semantic_failure "$path: expected file is missing ($description)"
+    return
+  fi
+
+  if ! grep -Fq -- "$pattern" "$path"; then
+    note_semantic_failure "$path: missing '$pattern' ($description)"
+  fi
+}
+
+require_file_contains_any() {
+  local path="$1"
+  local description="$2"
+  shift 2
+
+  if [[ ! -f "$path" ]]; then
+    note_semantic_failure "$path: expected file is missing ($description)"
+    return
+  fi
+
+  local pattern
+  for pattern in "$@"; do
+    if grep -Fq -- "$pattern" "$path"; then
+      return
+    fi
+  done
+
+  note_semantic_failure "$path: missing one of [$*] ($description)"
+}
+
+require_file_not_contains() {
+  local path="$1"
+  local pattern="$2"
+  local description="$3"
+
+  if [[ ! -f "$path" ]]; then
+    note_semantic_failure "$path: expected file is missing ($description)"
+    return
+  fi
+
+  if grep -Fq -- "$pattern" "$path"; then
+    note_semantic_failure "$path: contains forbidden text '$pattern' ($description)"
+  fi
+}
+
+run_semantic_doc_truth_checks() {
+  require_file_not_contains \
+    "docs/deployment-strategy.md" \
+    "./scripts/archive-runtime-report.sh https://api.example.com admin strong_password" \
+    "deployment docs must not demonstrate positional admin passwords"
+
+  local archive_docs=(
+    "docs/deployment-strategy.md"
+    "docs/en/deployment.md"
+    "docs/tr/deployment.md"
+    "scripts/README.md"
+  )
+  local doc
+  for doc in "${archive_docs[@]}"; do
+    if [[ -f "$doc" ]] && grep -Fq "archive-runtime-report.sh" "$doc"; then
+      require_file_contains_any \
+        "$doc" \
+        "archive-runtime-report usage should point operators to env/stdin credentials" \
+        "--password-stdin" \
+        "DEPLOY_ADMIN_PASSWORD"
+    fi
+  done
+
+  if grep -R -Fq "LEDGER_ATTESTATION_REQUIRE_SIGNED: 'true'" .github/workflows; then
+    local evidence_docs=(
+      "docs/deployment-strategy.md"
+      "docs/en/deployment.md"
+      "docs/tr/deployment.md"
+      "docs/en/operations.md"
+      "docs/tr/operasyonlar.md"
+    )
+    for doc in "${evidence_docs[@]}"; do
+      require_file_contains "$doc" "RELEASE_EVIDENCE_AUDIT_TARGET" "signed evidence workflows require an audit export target"
+      require_file_contains_any \
+        "$doc" \
+        "signed evidence workflows require the attestation signing secret" \
+        "RELEASE_LEDGER_ATTESTATION_KEY" \
+        "LEDGER_ATTESTATION_SIGNING_KEY"
+    done
+  fi
+
+  if [[ -f "frontend/e2e/live-stack.spec.ts" ]]; then
+    local smoke_docs=(
+      "README.md"
+      "docs/en/quick-start.md"
+      "docs/tr/hizli-baslangic.md"
+      "docs/en/testing-and-quality.md"
+      "docs/tr/test-ve-kalite.md"
+    )
+    for doc in "${smoke_docs[@]}"; do
+      require_file_contains "$doc" "e2e:live" "docs should mention the real-stack browser smoke"
+      require_file_contains "$doc" "e2e" "docs should mention the mock-backed browser regression lane"
+    done
+  fi
+
+  require_file_not_contains \
+    "docs/en/testing-and-quality.md" \
+    "until Phase 1 toolchain alignment is complete" \
+    "testing docs must not describe already-closed toolchain work as open"
+  require_file_not_contains \
+    "docs/en/testing-and-quality.md" \
+    "SystemStatus.svelte is still too large and needs decomposition" \
+    "testing docs must not describe the completed SystemStatus split as open"
+  require_file_not_contains \
+    "docs/en/testing-and-quality.md" \
+    'repo-local Go toolchain alignment remains open in `PROGRESS.md`' \
+    "testing docs must not point at stale backlog items"
+
+  require_file_not_contains \
+    "docs/tr/test-ve-kalite.md" \
+    "Faz 1 toolchain hizalamasina kadar" \
+    "TR testing docs must not describe already-closed toolchain work as open"
+  require_file_not_contains \
+    "docs/tr/test-ve-kalite.md" \
+    "SystemStatus.svelte halen fazla buyuk ve parcali bakima ihtiyac duyuyor" \
+    "TR testing docs must not describe the completed SystemStatus split as open"
+  require_file_not_contains \
+    "docs/tr/test-ve-kalite.md" \
+    'repo-ici Go toolchain hizalamasi `PROGRESS.md` icinde halen acik' \
+    "TR testing docs must not point at stale backlog items"
+}
+
 if [[ "$MODE" != "advisory" && "$MODE" != "strict" ]]; then
   echo "invalid mode: $MODE" >&2
   usage >&2
@@ -169,6 +307,25 @@ if [[ "${#missing_docs[@]}" -gt 0 ]]; then
   done
   echo "changed files:"
   echo "$CHANGED_FILES"
+  echo "advisory mode does not fail the command"
+  exit 0
+fi
+
+run_semantic_doc_truth_checks
+
+if [[ "${#semantic_failures[@]}" -gt 0 ]]; then
+  if [[ "$MODE" == "strict" ]]; then
+    echo "doc drift check failed (strict): semantic doc truth checks failed"
+    for failure in "${semantic_failures[@]}"; do
+      echo "  - $failure"
+    done
+    exit 1
+  fi
+
+  echo "doc drift check advisory: semantic doc truth checks failed"
+  for failure in "${semantic_failures[@]}"; do
+    echo "  - $failure"
+  done
   echo "advisory mode does not fail the command"
   exit 0
 fi

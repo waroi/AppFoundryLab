@@ -1,5 +1,7 @@
 import { DEFAULT_LOCALE, type Locale } from "@/lib/ui/preferences";
 
+export type { Locale } from "@/lib/ui/preferences";
+
 export type PageTitleKey = "home" | "test";
 
 const LOCALE_TAGS: Record<Locale, string> = {
@@ -40,6 +42,12 @@ const copy = {
       unknown_error: "Unknown error",
       network_error: "Network error",
       login_required: "Sign in before running this action.",
+      invalid_credentials: "Invalid username or password.",
+      runtime_report_unavailable: "Runtime diagnostics are temporarily unavailable.",
+      request_logs_unavailable: "Request log lookup is temporarily unavailable.",
+      users_unavailable: "User data is temporarily unavailable.",
+      worker_unavailable: "Worker service is temporarily unavailable.",
+      request_failed_503: "Runtime diagnostics are temporarily unavailable.",
       invalid_restore_drill_verification: "Restore drill verification artifact is invalid.",
       invalid_restore_drill_manifest: "Restore drill manifest artifact is invalid.",
       api_circuit_open: "API requests are temporarily paused while the gateway recovers.",
@@ -230,6 +238,12 @@ const copy = {
       unknown_error: "Bilinmeyen hata",
       network_error: "Ag hatasi",
       login_required: "Bu islemi calistirmadan once giris yapin.",
+      invalid_credentials: "Kullanici adi veya sifre gecersiz.",
+      runtime_report_unavailable: "Runtime diagnostics gecici olarak kullanilamiyor.",
+      request_logs_unavailable: "Istek kaydi sorgusu gecici olarak kullanilamiyor.",
+      users_unavailable: "Kullanici verisi gecici olarak kullanilamiyor.",
+      worker_unavailable: "Worker servisi gecici olarak kullanilamiyor.",
+      request_failed_503: "Runtime diagnostics gecici olarak kullanilamiyor.",
       invalid_restore_drill_verification: "Restore drill dogrulama dosyasi gecersiz.",
       invalid_restore_drill_manifest: "Restore drill manifest dosyasi gecersiz.",
       api_circuit_open: "Gateway toparlanirken API istekleri gecici olarak durduruldu.",

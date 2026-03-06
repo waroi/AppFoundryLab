@@ -18,6 +18,15 @@ func TestRuntimeConfigHandler(t *testing.T) {
 		},
 		Operations: RuntimeOperationsSummary{
 			RateLimitStore: "memory",
+			DependencyPolicies: []RuntimeDependencyPolicy{
+				{
+					Route:           "GET /api/v1/users",
+					Dependency:      "postgres",
+					StrictMode:      "fail-fast",
+					NonStrictMode:   "continue",
+					RuntimeBehavior: "503 users_unavailable",
+				},
+			},
 		},
 		Warnings: []string{"default bootstrap credentials are still active"},
 	}
@@ -40,5 +49,11 @@ func TestRuntimeConfigHandler(t *testing.T) {
 	}
 	if len(payload.Warnings) != 1 {
 		t.Fatalf("expected one warning, got %d", len(payload.Warnings))
+	}
+	if len(payload.Operations.DependencyPolicies) != 1 {
+		t.Fatalf("expected one dependency policy, got %d", len(payload.Operations.DependencyPolicies))
+	}
+	if payload.Operations.DependencyPolicies[0].Dependency != "postgres" {
+		t.Fatalf("expected postgres dependency policy, got %q", payload.Operations.DependencyPolicies[0].Dependency)
 	}
 }

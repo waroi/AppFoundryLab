@@ -42,7 +42,7 @@ func RuntimeRequestLogsHandler(loggerEndpoint string, client *http.Client) http.
 		if limit == "" {
 			limit = "20"
 		} else if parsed, err := strconv.Atoi(limit); err != nil {
-			http.Error(w, "invalid limit", http.StatusBadRequest)
+			httpx.WriteError(w, r, http.StatusBadRequest, "invalid_query_limit", "invalid limit", nil)
 			return
 		} else if parsed > maxRuntimeRequestLogsLimit {
 			limit = strconv.Itoa(maxRuntimeRequestLogsLimit)
@@ -54,25 +54,25 @@ func RuntimeRequestLogsHandler(loggerEndpoint string, client *http.Client) http.
 			query.Set("traceId", traceID)
 		}
 
-		req, err := http.NewRequest(http.MethodGet, baseURL+"/request-logs?"+query.Encode(), nil)
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, baseURL+"/request-logs?"+query.Encode(), nil)
 		if err != nil {
-			http.Error(w, "failed to create request", http.StatusInternalServerError)
+			httpx.WriteError(w, r, http.StatusInternalServerError, "request_logs_request_failed", "failed to create request", nil)
 			return
 		}
 		resp, err := client.Do(req)
 		if err != nil {
-			http.Error(w, "failed to query request logs", http.StatusServiceUnavailable)
+			httpx.WriteError(w, r, http.StatusServiceUnavailable, "logger_unavailable", "failed to query request logs", nil)
 			return
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-			http.Error(w, "failed to query request logs", http.StatusServiceUnavailable)
+			httpx.WriteError(w, r, http.StatusServiceUnavailable, "logger_unavailable", "failed to query request logs", nil)
 			return
 		}
 
 		var payload RuntimeRequestLogsResponse
 		if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-			http.Error(w, "failed to decode request logs", http.StatusServiceUnavailable)
+			httpx.WriteError(w, r, http.StatusServiceUnavailable, "request_logs_invalid_response", "failed to decode request logs", nil)
 			return
 		}
 		httpx.WriteJSON(w, http.StatusOK, payload)

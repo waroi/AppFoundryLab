@@ -89,6 +89,8 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
           ADMIN_USER: ${{ secrets.STAGING_ADMIN_USERNAME }}
           ADMIN_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
+          LEDGER_ATTESTATION_SIGNING_KEY: ${{ secrets.RELEASE_LEDGER_ATTESTATION_KEY }}
+          RELEASE_EVIDENCE_AUDIT_TARGET: ${{ vars.RELEASE_EVIDENCE_AUDIT_TARGET }}
           GHCR_USERNAME: ${{ vars.STAGING_GHCR_USERNAME }}
           GHCR_TOKEN: ${{ secrets.STAGING_GHCR_TOKEN }}
         run: |
@@ -108,6 +110,14 @@ jobs:
                 exit 1
               fi
             done
+            if [ -z "${RELEASE_EVIDENCE_AUDIT_TARGET:-}" ]; then
+              echo "missing required staging evidence export target: RELEASE_EVIDENCE_AUDIT_TARGET" >&2
+              exit 1
+            fi
+          fi
+          if [ -z "${LEDGER_ATTESTATION_SIGNING_KEY:-}" ]; then
+            echo "missing required staging attestation secret: RELEASE_LEDGER_ATTESTATION_KEY" >&2
+            exit 1
           fi
 
       - name: Start SSH agent
@@ -222,7 +232,7 @@ jobs:
         env:
           LEDGER_ATTESTATION_SIGNING_KEY: ${{ secrets.RELEASE_LEDGER_ATTESTATION_KEY }}
           LEDGER_ATTESTATION_KEY_ID: ${{ vars.RELEASE_LEDGER_ATTESTATION_KEY_ID }}
-          LEDGER_ATTESTATION_REQUIRE_SIGNED: ${{ vars.RELEASE_LEDGER_ATTESTATION_REQUIRED || 'false' }}
+          LEDGER_ATTESTATION_REQUIRE_SIGNED: 'true'
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -237,6 +247,9 @@ jobs:
 
       - name: Build staging release evidence summary
         if: always() && env.DEPLOY_MODE == 'image'
+        env:
+          RELEASE_EVIDENCE_REQUIRE_ATTESTATION: 'true'
+          RELEASE_EVIDENCE_REQUIRE_SIGNED_ATTESTATION: 'true'
         run: |
           set -euo pipefail
           mkdir -p ./artifacts/release-evidence/staging
