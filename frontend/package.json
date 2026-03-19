@@ -17,7 +17,7 @@
     "test": "node ./node_modules/vitest/vitest.mjs run"
   },
   "dependencies": {
-    "@astrojs/svelte": "^7.2.5",
+    "@astrojs/svelte": "^8.0.0",
     "@astrojs/tailwind": "^6.0.0",
     "astro": "^6.0.4",
     "flowbite": "^4.0.1",
