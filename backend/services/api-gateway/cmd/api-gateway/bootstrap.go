@@ -237,7 +237,7 @@ func buildRateLimiters(cfg runtimeConfig, redisClient *redis.Client) (func(http.
 	apiRateLimiter := middleware.RateLimitByIP(cfg.APIRateLimitPerMinute, time.Minute)
 
 	if cfg.RateLimitStore == "redis" && redisClient != nil {
-		authRateLimiter = middleware.RateLimitByIPDistributedWithFailureMode(redisClient, "auth", cfg.AuthRateLimitPerMinute, time.Minute, cfg.RedisFailureMode)
+		authRateLimiter = middleware.RateLimitByIPDistributedWithFailureMode(redisClient, "auth", cfg.AuthRateLimitPerMinute, time.Minute, cfg.AuthRedisFailureMode)
 		apiRateLimiter = middleware.RateLimitByIPDistributedWithFailureMode(redisClient, "api", cfg.APIRateLimitPerMinute, time.Minute, cfg.RedisFailureMode)
 	} else if cfg.RateLimitStore == "redis" {
 		log.Printf("rate limiter store requested=redis but redis client unavailable, falling back to memory")

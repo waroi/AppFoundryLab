@@ -37,6 +37,7 @@ type Config struct {
 	APIRateLimitPerMinute             int
 	RateLimitStore                    string
 	RedisFailureMode                  string
+	AuthRedisFailureMode              string
 	LegacyAPIEnabled                  bool
 	LegacyDeprecationDate             string
 	LegacySunsetDate                  string
@@ -50,6 +51,7 @@ type Config struct {
 	BootstrapAdminUser                string
 	BootstrapUser                     string
 	DefaultCredentialsInUse           bool
+	DemoFallbackUsersEnabled          bool
 }
 
 func Load() Config {
@@ -73,6 +75,7 @@ func Load() Config {
 		APIRateLimitPerMinute:             env.GetIntWithDefault("API_RATE_LIMIT_PER_MINUTE", 120),
 		RateLimitStore:                    env.GetWithDefault("RATE_LIMIT_STORE", "memory"),
 		RedisFailureMode:                  ResolveRedisLimiterFailureMode(),
+		AuthRedisFailureMode:              ResolveAuthRedisLimiterFailureMode(),
 		LegacyAPIEnabled:                  ResolveLegacyAPIEnabled(),
 		LegacyDeprecationDate:             env.GetWithDefault("API_LEGACY_DEPRECATION_DATE", "Fri, 27 Feb 2026 00:00:00 GMT"),
 		LegacySunsetDate:                  env.GetWithDefault("API_LEGACY_SUNSET_DATE", "Tue, 30 Jun 2026 23:59:59 GMT"),
@@ -86,10 +89,19 @@ func Load() Config {
 		BootstrapAdminUser:                env.GetWithDefault("BOOTSTRAP_ADMIN_USER", DefaultAdminUser),
 		BootstrapUser:                     env.GetWithDefault("BOOTSTRAP_USER", DefaultRegularUser),
 		DefaultCredentialsInUse:           ResolveDefaultCredentialsInUse(),
+		DemoFallbackUsersEnabled:          os.Getenv("DEMO_FALLBACK_USERS") == "true",
 	}
 }
 
 func Validate(cfg Config) error {
+	if cfg.RuntimeProfile == "secure" {
+		if cfg.DefaultCredentialsInUse {
+			return errors.New("startup blocked: default bootstrap credentials are still active; set BOOTSTRAP_ADMIN_PASSWORD and BOOTSTRAP_USER_PASSWORD before running in secure profile")
+		}
+		if cfg.DemoFallbackUsersEnabled {
+			return errors.New("startup blocked: DEMO_FALLBACK_USERS=true is not permitted in secure profile")
+		}
+	}
 	if cfg.LoggerEndpoint == "" {
 		if err := validateIncidentWebhook(cfg); err != nil {
 			return err
@@ -174,6 +186,21 @@ func ResolveRedisLimiterFailureMode() string {
 		return "closed"
 	}
 	return "open"
+}
+
+// ResolveAuthRedisLimiterFailureMode returns the Redis failure mode for the auth
+// rate limiter. Authentication rate limiting always defaults to "closed" to
+// prevent credential-stuffing during a Redis outage; operators can override
+// with AUTH_RATE_LIMIT_REDIS_FAILURE_MODE.
+func ResolveAuthRedisLimiterFailureMode() string {
+	if mode, exists := os.LookupEnv("AUTH_RATE_LIMIT_REDIS_FAILURE_MODE"); exists && mode != "" {
+		mode = strings.ToLower(strings.TrimSpace(mode))
+		if mode == "open" {
+			return "open"
+		}
+		return "closed"
+	}
+	return "closed"
 }
 
 func ResolveMaxInFlightRequests() int {

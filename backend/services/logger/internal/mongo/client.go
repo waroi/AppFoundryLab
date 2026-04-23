@@ -3,6 +3,7 @@ package mongo
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"sync"
 	"time"
 
@@ -118,12 +119,12 @@ func database(ctx context.Context) (*mongo.Database, error) {
 }
 
 func mongoURI() string {
-	return fmt.Sprintf("mongodb://%s:%s@%s:%s",
-		env.MustGet("MONGO_INITDB_ROOT_USERNAME"),
-		env.MustGet("MONGO_INITDB_ROOT_PASSWORD"),
-		env.MustGet("MONGO_HOST"),
-		env.GetWithDefault("MONGO_PORT", "27017"),
-	)
+	u := &url.URL{
+		Scheme: "mongodb",
+		User:   url.UserPassword(env.MustGet("MONGO_INITDB_ROOT_USERNAME"), env.MustGet("MONGO_INITDB_ROOT_PASSWORD")),
+		Host:   fmt.Sprintf("%s:%s", env.MustGet("MONGO_HOST"), env.GetWithDefault("MONGO_PORT", "27017")),
+	}
+	return u.String()
 }
 
 func dependencyConnectAttempts() int {

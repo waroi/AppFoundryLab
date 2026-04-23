@@ -43,6 +43,9 @@ func diagnosticsSummary(cfg runtimeConfig) handlers.RuntimeConfigSummary {
 	if cfg.DefaultCredentialsInUse {
 		warnings = append(warnings, "default bootstrap credentials are still active")
 	}
+	if cfg.DemoFallbackUsersEnabled {
+		warnings = append(warnings, "DEMO_FALLBACK_USERS is enabled; ensure this is never set in production")
+	}
 	if cfg.LocalAuthMode == "demo" {
 		warnings = append(warnings, "local auth demo mode is enabled")
 	}
