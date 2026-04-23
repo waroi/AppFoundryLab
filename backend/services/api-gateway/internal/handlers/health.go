@@ -113,7 +113,7 @@ func (h *ReadyEndpoints) Ready(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 
 	httpStatus, payload, hasError := h.readinessProbe(ctx, h.workerClient)

@@ -186,7 +186,11 @@ func (m *Monitor) process() {
 		}
 
 		if eventType != "" {
-			m.dispatchEvent(buildIncidentEventRecord(report, alert, state, eventType))
+			if err := m.dispatchEvent(buildIncidentEventRecord(report, alert, state, eventType)); err != nil {
+				m.dispatchFailures.Add(1)
+				m.lastDispatchError = err.Error()
+			}
+			m.lastDispatchAt = time.Now().UTC().Format(time.RFC3339Nano)
 			state.LastEmitAt = now
 		}
 		state.BreachCount = alert.BreachCount
@@ -209,12 +213,17 @@ func (m *Monitor) process() {
 				BreachCount:       state.BreachCount,
 				LastTriggeredAt:   state.LastSeenAt,
 			}
-			m.dispatchEvent(buildIncidentEventRecord(report, resolvedAlert, state, "resolved"))
+			if err := m.dispatchEvent(buildIncidentEventRecord(report, resolvedAlert, state, "resolved")); err != nil {
+				m.dispatchFailures.Add(1)
+				m.lastDispatchError = err.Error()
+			}
+			m.lastDispatchAt = time.Now().UTC().Format(time.RFC3339Nano)
 			state.LastStatus = "resolved"
 			state.LastEmitAt = now
 			m.states[code] = state
 		}
 	}
+	m.publishStats()
 }
 
 func buildIncidentEventRecord(
@@ -251,22 +260,20 @@ func buildIncidentEventID(code, eventType, now string) string {
 	return safeCode + "-" + eventType + "-" + strings.ReplaceAll(strings.ReplaceAll(now, ":", "-"), ".", "-")
 }
 
-func (m *Monitor) dispatchEvent(event handlers.RuntimeIncidentEventRecord) {
+func (m *Monitor) dispatchEvent(event handlers.RuntimeIncidentEventRecord) error {
 	if len(m.sink) == 0 {
-		return
+		return nil
 	}
 
 	payload, err := json.Marshal(event)
 	if err != nil {
-		m.dispatchFailures.Add(1)
-		m.lastDispatchError = err.Error()
-		return
+		return err
 	}
 
+	var dispatchErr error
 	if m.sinkEnabled("logger") {
 		if err := m.dispatchToLogger(payload); err != nil {
-			m.dispatchFailures.Add(1)
-			m.lastDispatchError = err.Error()
+			dispatchErr = err
 		}
 	}
 	if m.sinkEnabled("stdout") {
@@ -274,12 +281,10 @@ func (m *Monitor) dispatchEvent(event handlers.RuntimeIncidentEventRecord) {
 	}
 	if m.sinkEnabled("webhook") {
 		if err := m.dispatchToWebhook(payload); err != nil {
-			m.dispatchFailures.Add(1)
-			m.lastDispatchError = err.Error()
+			dispatchErr = err
 		}
 	}
-	m.lastDispatchAt = time.Now().UTC().Format(time.RFC3339Nano)
-	m.publishStats()
+	return dispatchErr
 }
 
 func (m *Monitor) dispatchToLogger(body []byte) error {
