@@ -1,16 +1,16 @@
 module github.com/example/appfoundrylab/backend
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang-migrate/migrate/v4 v4.19.1
-	github.com/jackc/pgx/v5 v5.8.0
+	github.com/jackc/pgx/v5 v5.9.1
 	github.com/redis/go-redis/v9 v9.18.0
 	go.mongodb.org/mongo-driver v1.17.9
-	google.golang.org/grpc v1.79.2
-	google.golang.org/protobuf v1.36.10
+	google.golang.org/grpc v1.79.3
+	google.golang.org/protobuf v1.36.11
 )
 
 require (
