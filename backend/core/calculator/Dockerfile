@@ -1,4 +1,4 @@
-FROM rust:1.95-alpine AS builder
+FROM rust:1.97-alpine AS builder
 WORKDIR /app
 RUN apk add --no-cache musl-dev build-base perl
 COPY core/calculator/Cargo.toml core/calculator/build.rs /app/
